@@ -10,18 +10,9 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     server: {
       proxy: {
-        // The Proxy Rule:
-        // Requests to "http://localhost:5173/api/openai/..."
-        // are forwarded to "https://api.openai.com/v1/..."
-        '/api/openai': {
-          target: 'https://api.openai.com/v1',
+        '/api': {
+          target: 'http://localhost:5000',
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api\/openai/, ''),
-          headers: {
-            // INJECT THE KEY HERE (Securely on the "server" side)
-            'Authorization': `Bearer ${env.VITE_OPENAI_API_KEY}`,
-            'Content-Type': 'application/json'
-          }
         }
       }
     }
