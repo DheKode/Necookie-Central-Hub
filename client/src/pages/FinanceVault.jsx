@@ -1,77 +1,204 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Target, Shield, AlertTriangle, TrendingUp, DollarSign, X, Check } from 'lucide-react';
+import { Plus, Target, Shield, AlertTriangle, TrendingUp, DollarSign, X, Check, ArrowDownRight } from 'lucide-react';
 import { ResponsiveContainer } from 'recharts'; // Assuming you might want charts later, but for now simple divs
 import { api } from '../api';
 
 // ==========================================
-// SUB-COMPONENT: FUND CARD
+// SUB-COMPONENT: BANK CARD
 // ==========================================
-const FundCard = ({ fund, onUpdate, onDelete }) => {
+const BankCard = ({ fund, onUpdate, onDelete, walletBalance, onTransaction }) => {
     const percentage = Math.min((fund.current_amount / fund.target_amount) * 100, 100);
     const [isEditing, setIsEditing] = useState(false);
-    const [addAmount, setAddAmount] = useState('');
+    const [amount, setAmount] = useState('');
+    const [mode, setMode] = useState('deposit'); // deposit, withdraw
 
-    const handleAddMoney = async () => {
-        if (!addAmount) return;
-        const newAmount = fund.current_amount + parseFloat(addAmount);
+    const handleTransaction = async () => {
+        if (!amount || isNaN(amount) || parseFloat(amount) <= 0) return;
+        const val = parseFloat(amount);
+
+        // Validation
+        if (mode === 'deposit' && val > walletBalance) {
+            alert("Insufficient wallet balance!");
+            return;
+        }
+        if (mode === 'withdraw' && val > fund.current_amount) {
+            alert("Insufficient fund balance!");
+            return;
+        }
+
+        let newAmount = fund.current_amount;
+        if (mode === 'deposit') newAmount += val;
+        else if (mode === 'withdraw') newAmount -= val;
+
+        // 1. Update Fund
         const { data, error } = await api.updateFund(fund.id, { current_amount: newAmount });
+
         if (!error && data) {
+            // 2. Creating Transaction Record (Only for Deposit/Withdraw)
+            if (mode === 'deposit') {
+                await onTransaction({
+                    type: 'expense',
+                    amount: val,
+                    category: 'Savings',
+                    description: `Transfer to ${fund.name}`,
+                    date: new Date().toISOString().split('T')[0]
+                });
+            } else if (mode === 'withdraw') {
+                await onTransaction({
+                    type: 'income',
+                    amount: val,
+                    category: 'Savings',
+                    description: `Withdraw from ${fund.name}`,
+                    date: new Date().toISOString().split('T')[0]
+                });
+            }
+
             onUpdate(data[0]);
-            setAddAmount('');
+            setAmount('');
             setIsEditing(false);
         }
     };
 
-    return (
-        <div className="bg-surface border border-border rounded-3xl p-6 shadow-sm relative group">
-            <button onClick={() => onDelete(fund.id)} className="absolute top-4 right-4 text-text-muted hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                <X size={16} />
-            </button>
+    // Color Logic for Card
+    const getCardGradient = (color) => {
+        const gradients = {
+            indigo: 'from-indigo-600 to-violet-600',
+            emerald: 'from-emerald-600 to-teal-600',
+            rose: 'from-rose-600 to-pink-600',
+            amber: 'from-amber-500 to-orange-600',
+            blue: 'from-blue-600 to-cyan-600',
+        };
+        return gradients[color] || gradients.indigo;
+    };
 
-            <div className="flex items-center gap-3 mb-4">
-                <div className={`p-3 rounded-xl bg-${fund.color || 'indigo'}-500/10 text-${fund.color || 'indigo'}-500`}>
-                    <Shield size={24} />
+    return (
+        <div className="relative group perspective-1000">
+            {/* EDIT/ACTION OVERLAY */}
+            {isEditing && (
+                <div className="absolute inset-0 z-20 bg-surface/95 backdrop-blur-md rounded-3xl p-6 flex flex-col justify-center animate-in fade-in duration-200 border border-border">
+                    <div className="flex justify-between items-center mb-4">
+                        <h4 className="font-bold text-text-main uppercase text-xs tracking-wider">
+                            {mode === 'deposit' ? 'Add to Savings' : 'Withdraw Cash'}
+                        </h4>
+                        <button onClick={() => setIsEditing(false)} className="text-text-muted hover:text-text-main"><X size={18} /></button>
+                    </div>
+
+                    <div className="flex bg-surface-highlight p-1 rounded-xl mb-4">
+                        <button
+                            onClick={() => setMode('deposit')}
+                            className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${mode === 'deposit' ? 'bg-background text-indigo-500 shadow-sm' : 'text-text-muted hover:text-text-main'}`}
+                        >
+                            Deposit
+                        </button>
+                        <button
+                            onClick={() => setMode('withdraw')}
+                            className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${mode === 'withdraw' ? 'bg-background text-rose-500 shadow-sm' : 'text-text-muted hover:text-text-main'}`}
+                        >
+                            Withdraw
+                        </button>
+                    </div>
+
+                    <div className="relative mb-4">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted font-bold">₱</span>
+                        <input
+                            type="number"
+                            value={amount}
+                            onChange={(e) => setAmount(e.target.value)}
+                            placeholder="0.00"
+                            className="w-full bg-background border border-border rounded-xl pl-8 p-3 text-lg font-bold text-text-main focus:outline-none focus:border-primary"
+                            autoFocus
+                        />
+                    </div>
+
+                    <button
+                        onClick={handleTransaction}
+                        className={`w-full py-3 rounded-xl font-bold text-white shadow-lg transition-all active:scale-95 ${mode === 'deposit' ? 'bg-indigo-500 hover:bg-indigo-600 shadow-indigo-500/20' : 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20'}`}
+                    >
+                        Confirm {mode}
+                    </button>
+
+                    <p className="text-[10px] text-text-muted text-center mt-3">
+                        {mode === 'deposit'
+                            ? `Available: ₱${walletBalance.toLocaleString()}`
+                            : `Available: ₱${fund.current_amount.toLocaleString()}`
+                        }
+                    </p>
                 </div>
-                <div>
-                    <h3 className="font-bold text-text-main">{fund.name}</h3>
-                    <p className="text-xs text-text-muted">Target: ₱{fund.target_amount.toLocaleString()}</p>
+            )}
+
+            {/* MAIN CARD VISUAL */}
+            <div className={`relative overflow-hidden rounded-3xl p-6 aspect-[1.586/1] shadow-2xl transition-transform duration-300 group-hover:scale-[1.02] bg-gradient-to-br ${getCardGradient(fund.color || 'indigo')}`}>
+                {/* Background Pattern */}
+                <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-repeat mix-blend-overlay"></div>
+                <div className="absolute -top-24 -right-24 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
+                <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-black/10 rounded-full blur-3xl"></div>
+
+                {/* Card Content */}
+                <div className="relative z-10 flex flex-col justify-between h-full text-white">
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <p className="text-xs font-medium opacity-80 uppercase tracking-widest mb-1">Savings Account</p>
+                            <h3 className="text-xl font-bold tracking-tight">{fund.name}</h3>
+                        </div>
+                        <Shield size={28} className="opacity-80" />
+                    </div>
+
+                    <div className="flex items-center gap-4 my-auto">
+                        <div className="w-12 h-9 rounded-md bg-gradient-to-tr from-yellow-200 to-yellow-500 shadow-sm opacity-90"></div>
+                        <div className="flex gap-1">
+                            <div className="w-8 h-5 rounded-full border border-white/30"></div>
+                            <div className="w-8 h-5 rounded-full border border-white/30 -ml-4"></div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <p className="text-xs font-medium opacity-70 uppercase mb-1">Current Balance</p>
+                        <div className="flex justify-between items-end">
+                            <h2 className="text-3xl font-mono font-bold tracking-tight text-white drop-shadow-md">
+                                ₱{fund.current_amount.toLocaleString()}
+                            </h2>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => { setMode('withdraw'); setIsEditing(true); }}
+                                    className="p-2 rounded-full bg-black/20 hover:bg-black/30 backdrop-blur-sm transition-colors text-white/90"
+                                    title="Withdraw"
+                                >
+                                    <ArrowDownRight size={18} />
+                                </button>
+                                <button
+                                    onClick={() => { setMode('deposit'); setIsEditing(true); }}
+                                    className="p-2 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-colors text-white"
+                                    title="Deposit"
+                                >
+                                    <Plus size={18} />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+
+                {/* Delete Button (Hidden unless hovered) */}
+                <button
+                    onClick={() => onDelete(fund.id)}
+                    className="absolute top-4 right-4 text-white/40 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                >
+                    <X size={16} />
+                </button>
             </div>
 
-            <div className="mb-4">
-                <div className="flex justify-between text-xs font-bold mb-2">
-                    <span className="text-text-main">₱{fund.current_amount.toLocaleString()}</span>
-                    <span className="text-text-muted">{percentage.toFixed(0)}%</span>
+            {/* Progress Bar Below Card */}
+            <div className="mt-4 px-2">
+                <div className="flex justify-between text-xs font-bold text-text-muted mb-1.5">
+                    <span>Progress to ₱{fund.target_amount.toLocaleString()}</span>
+                    <span>{percentage.toFixed(0)}%</span>
                 </div>
-                <div className="h-3 w-full bg-surface-highlight rounded-full overflow-hidden">
+                <div className="h-2 w-full bg-surface py-0.5 rounded-full overflow-hidden border border-border/50">
                     <div
                         className={`h-full rounded-full transition-all duration-500 bg-${fund.color || 'indigo'}-500`}
                         style={{ width: `${percentage}%` }}
                     />
                 </div>
             </div>
-
-            {isEditing ? (
-                <div className="flex gap-2 animate-in fade-in slide-in-from-top-2">
-                    <input
-                        type="number"
-                        placeholder="Amount"
-                        value={addAmount}
-                        onChange={(e) => setAddAmount(e.target.value)}
-                        className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary"
-                        autoFocus
-                    />
-                    <button onClick={handleAddMoney} className="p-2 bg-emerald-500 text-white rounded-xl"><Check size={16} /></button>
-                    <button onClick={() => setIsEditing(false)} className="p-2 bg-surface-highlight text-text-muted rounded-xl"><X size={16} /></button>
-                </div>
-            ) : (
-                <button
-                    onClick={() => setIsEditing(true)}
-                    className="w-full py-2 rounded-xl border border-dashed border-border text-text-muted text-xs font-bold hover:border-primary hover:text-primary transition-colors"
-                >
-                    + Add Money
-                </button>
-            )}
         </div>
     );
 };
@@ -79,21 +206,59 @@ const FundCard = ({ fund, onUpdate, onDelete }) => {
 // ==========================================
 // SUB-COMPONENT: GOAL CARD
 // ==========================================
-const GoalCard = ({ goal, onUpdate, onDelete }) => {
+const GoalCard = ({ goal, onUpdate, onDelete, walletBalance, onTransaction }) => {
     const percentage = Math.min((goal.current_amount / goal.target_amount) * 100, 100);
     const [isEditing, setIsEditing] = useState(false);
-    const [addAmount, setAddAmount] = useState('');
+    const [amount, setAmount] = useState('');
+    const [mode, setMode] = useState('deposit'); // deposit, withdraw, adjust
 
     const daysLeft = goal.deadline ? Math.ceil((new Date(goal.deadline) - new Date()) / (1000 * 60 * 60 * 24)) : null;
     const dailySave = daysLeft && daysLeft > 0 ? (goal.target_amount - goal.current_amount) / daysLeft : 0;
 
-    const handleAddMoney = async () => {
-        if (!addAmount) return;
-        const newAmount = goal.current_amount + parseFloat(addAmount);
+    const handleTransaction = async () => {
+        if (!amount || isNaN(amount) || parseFloat(amount) <= 0) return;
+        const val = parseFloat(amount);
+
+        // Validation
+        if (mode === 'deposit' && val > walletBalance) {
+            alert("Insufficient wallet balance!");
+            return;
+        }
+        if (mode === 'withdraw' && val > goal.current_amount) {
+            alert("Insufficient goal balance!");
+            return;
+        }
+
+        let newAmount = goal.current_amount;
+        if (mode === 'deposit') newAmount += val;
+        else if (mode === 'withdraw') newAmount -= val;
+        else if (mode === 'adjust') newAmount = val;
+
+        // 1. Update Goal
         const { data, error } = await api.updateGoal(goal.id, { current_amount: newAmount });
+
         if (!error && data) {
+            // 2. Creating Transaction Record
+            if (mode === 'deposit') {
+                await onTransaction({
+                    type: 'expense',
+                    amount: val,
+                    category: 'Savings',
+                    description: `Transfer to ${goal.name}`,
+                    date: new Date().toISOString().split('T')[0]
+                });
+            } else if (mode === 'withdraw') {
+                await onTransaction({
+                    type: 'income',
+                    amount: val,
+                    category: 'Savings',
+                    description: `Withdraw from ${goal.name}`,
+                    date: new Date().toISOString().split('T')[0]
+                });
+            }
+
             onUpdate(data[0]);
-            setAddAmount('');
+            setAmount('');
             setIsEditing(false);
         }
     };
@@ -136,17 +301,40 @@ const GoalCard = ({ goal, onUpdate, onDelete }) => {
             )}
 
             {isEditing ? (
-                <div className="flex gap-2 animate-in fade-in slide-in-from-top-2">
-                    <input
-                        type="number"
-                        placeholder="Amount"
-                        value={addAmount}
-                        onChange={(e) => setAddAmount(e.target.value)}
-                        className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary"
-                        autoFocus
-                    />
-                    <button onClick={handleAddMoney} className="p-2 bg-emerald-500 text-white rounded-xl"><Check size={16} /></button>
-                    <button onClick={() => setIsEditing(false)} className="p-2 bg-surface-highlight text-text-muted rounded-xl"><X size={16} /></button>
+                <div className="animate-in fade-in slide-in-from-top-2 space-y-3">
+                    {/* Mode Toggles */}
+                    <div className="flex p-1 bg-surface-highlight rounded-xl gap-1">
+                        <button
+                            onClick={() => setMode('deposit')}
+                            className={`flex-1 text-[10px] uppercase font-bold py-1.5 rounded-lg transition-all ${mode === 'deposit' ? 'bg-background text-indigo-500 shadow-sm' : 'text-text-muted hover:text-text-main'}`}
+                        >Deposit</button>
+                        <button
+                            onClick={() => setMode('withdraw')}
+                            className={`flex-1 text-[10px] uppercase font-bold py-1.5 rounded-lg transition-all ${mode === 'withdraw' ? 'bg-background text-rose-500 shadow-sm' : 'text-text-muted hover:text-text-main'}`}
+                        >Withdraw</button>
+                        <button
+                            onClick={() => setMode('adjust')}
+                            className={`flex-1 text-[10px] uppercase font-bold py-1.5 rounded-lg transition-all ${mode === 'adjust' ? 'bg-background text-amber-500 shadow-sm' : 'text-text-muted hover:text-text-main'}`}
+                        >Adjust</button>
+                    </div>
+
+                    <div className="flex gap-2">
+                        <input
+                            type="number"
+                            placeholder={mode === 'adjust' ? "New Total Balance" : "Amount"}
+                            value={amount}
+                            onChange={(e) => setAmount(e.target.value)}
+                            className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                            autoFocus
+                        />
+                        <button onClick={handleTransaction} className={`p-2 text-white rounded-xl ${mode === 'deposit' ? 'bg-indigo-500' : mode === 'withdraw' ? 'bg-rose-500' : 'bg-amber-500'}`}>
+                            <Check size={16} />
+                        </button>
+                        <button onClick={() => setIsEditing(false)} className="p-2 bg-surface-highlight text-text-muted rounded-xl"><X size={16} /></button>
+                    </div>
+                    {mode === 'deposit' && <p className="text-[10px] text-text-muted text-center">Deducts from Wallet (₱{walletBalance.toLocaleString()})</p>}
+                    {mode === 'withdraw' && <p className="text-[10px] text-text-muted text-center">Adds to Wallet</p>}
+                    {mode === 'adjust' && <p className="text-[10px] text-text-muted text-center">Updates fund only (No Wallet impact)</p>}
                 </div>
             ) : (
                 <button
@@ -163,7 +351,7 @@ const GoalCard = ({ goal, onUpdate, onDelete }) => {
 // ==========================================
 // MAIN COMPONENT
 // ==========================================
-const FinanceVault = () => {
+const FinanceVault = ({ walletBalance = 0, onTransaction }) => {
     const [funds, setFunds] = useState([]);
     const [goals, setGoals] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -231,11 +419,23 @@ const FinanceVault = () => {
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
-            {/* SECTION 1: RESERVED FUNDS */}
+            {/* HEADER: WALLET BALANCE */}
+            <div className="bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 p-6 rounded-3xl flex items-center justify-between">
+                <div>
+                    <h3 className="text-text-muted text-sm font-bold uppercase mb-1">Available in Wallet</h3>
+                    <h2 className="text-3xl font-bold text-text-main">₱{walletBalance.toLocaleString()}</h2>
+                    <p className="text-xs text-text-muted mt-1">Transfers to funds/goals will differ from this amount.</p>
+                </div>
+                <div className="bg-background/80 p-3 rounded-2xl shadow-sm">
+                    <Shield className="text-indigo-500" size={32} />
+                </div>
+            </div>
+
+            {/* SECTION 1: BANK CARDS (SAVINGS) */}
             <div>
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-bold text-text-main flex items-center gap-2">
-                        <Shield className="text-indigo-500" size={24} /> Reserved Funds
+                        <Shield className="text-indigo-500" size={24} /> Savings Accounts
                     </h2>
                     <button
                         onClick={() => { setCreateType('fund'); setShowCreateModal(true); }}
@@ -244,14 +444,29 @@ const FinanceVault = () => {
                         <Plus size={20} />
                     </button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+                {/* BANK CARD GRID */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {funds.map(fund => (
-                        <FundCard key={fund.id} fund={fund} onUpdate={handleUpdateFund} onDelete={handleDeleteFund} />
+                        <BankCard
+                            key={fund.id}
+                            fund={fund}
+                            onUpdate={handleUpdateFund}
+                            onDelete={handleDeleteFund}
+                            walletBalance={walletBalance}
+                            onTransaction={onTransaction}
+                        />
                     ))}
                     {funds.length === 0 && (
-                        <div className="col-span-full p-8 border border-dashed border-border rounded-3xl text-center text-text-muted text-sm">
-                            No reserved funds yet. Create one to separate money for bills, etc.
-                        </div>
+                        <button
+                            onClick={() => { setCreateType('fund'); setShowCreateModal(true); }}
+                            className="h-56 w-full rounded-3xl border-2 border-dashed border-border hover:border-indigo-500/50 hover:bg-indigo-500/5 flex flex-col items-center justify-center gap-3 transition-all group"
+                        >
+                            <div className="p-4 bg-surface-highlight rounded-full text-text-muted group-hover:text-indigo-500 transition-colors">
+                                <Plus size={32} />
+                            </div>
+                            <p className="font-bold text-text-muted">Open New Savings Account</p>
+                        </button>
                     )}
                 </div>
             </div>
@@ -271,7 +486,14 @@ const FinanceVault = () => {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {goals.map(goal => (
-                        <GoalCard key={goal.id} goal={goal} onUpdate={handleUpdateGoal} onDelete={handleDeleteGoal} />
+                        <GoalCard
+                            key={goal.id}
+                            goal={goal}
+                            onUpdate={handleUpdateGoal}
+                            onDelete={handleDeleteGoal}
+                            walletBalance={walletBalance}
+                            onTransaction={onTransaction}
+                        />
                     ))}
                     {goals.length === 0 && (
                         <div className="col-span-full p-8 border border-dashed border-border rounded-3xl text-center text-text-muted text-sm">

@@ -413,8 +413,8 @@ const Finance = () => {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab.id
-                  ? 'bg-surface-highlight text-text-main shadow-sm'
-                  : 'text-text-muted hover:text-text-main hover:bg-surface-highlight/50'
+                ? 'bg-surface-highlight text-text-main shadow-sm'
+                : 'text-text-muted hover:text-text-main hover:bg-surface-highlight/50'
                 }`}
             >
               <tab.icon size={16} />
@@ -447,7 +447,10 @@ const Finance = () => {
         )}
 
         {activeTab === 'vault' && (
-          <FinanceVault />
+          <FinanceVault
+            walletBalance={stats.totalBalance}
+            onTransaction={addTransaction}
+          />
         )}
 
         {activeTab === 'transactions' && (
