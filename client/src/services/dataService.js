@@ -128,10 +128,11 @@ export const dataService = {
             .eq('user_id', user.id)
             .order('date', { ascending: false })
             .order('created_at', { ascending: false });
+        // Handle potential recurring logic here if needed, or in the UI
         return data;
     },
 
-    addFinanceRecord: async ({ type, amount, category, description, date }) => {
+    addFinanceRecord: async ({ type, amount, category, description, date, payment_method, is_recurring, recurrence_interval }) => {
         const user = await getUser();
         return supabase.from('finance_records').insert([{
             user_id: user.id,
@@ -139,11 +140,54 @@ export const dataService = {
             amount,
             category,
             description,
-            date
+            date,
+            payment_method,
+            is_recurring,
+            recurrence_interval
         }]).select();
     },
 
     deleteFinanceRecord: async (id) => {
         return supabase.from('finance_records').delete().eq('id', id);
+    },
+
+    // --- FINANCE FUNDS (RESERVED) ---
+    fetchFunds: async () => {
+        const user = await getUser();
+        const { data } = await supabase.from('finance_funds').select('*').eq('user_id', user.id).order('created_at', { ascending: true });
+        return data;
+    },
+
+    addFund: async (fundData) => {
+        const user = await getUser();
+        return supabase.from('finance_funds').insert([{ ...fundData, user_id: user.id }]).select();
+    },
+
+    updateFund: async (id, updates) => {
+        return supabase.from('finance_funds').update(updates).eq('id', id).select();
+    },
+
+    deleteFund: async (id) => {
+        return supabase.from('finance_funds').delete().eq('id', id);
+    },
+
+    // --- FINANCE GOALS (SAVINGS) ---
+    fetchGoals: async () => {
+        const user = await getUser();
+        const { data } = await supabase.from('finance_goals').select('*').eq('user_id', user.id).order('deadline', { ascending: true });
+        return data;
+    },
+
+    addGoal: async (goalData) => {
+        const user = await getUser();
+        return supabase.from('finance_goals').insert([{ ...goalData, user_id: user.id }]).select();
+    },
+
+    updateGoal: async (id, updates) => {
+        return supabase.from('finance_goals').update(updates).eq('id', id).select();
+    },
+
+    deleteGoal: async (id) => {
+        return supabase.from('finance_goals').delete().eq('id', id);
     }
 };
