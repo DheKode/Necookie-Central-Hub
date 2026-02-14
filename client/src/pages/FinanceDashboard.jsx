@@ -1,90 +1,63 @@
 import React from 'react';
 import {
-    PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, AreaChart, Area
+    PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, CartesianGrid
 } from 'recharts';
-import { ArrowUpRight, ArrowDownRight, TrendingDown, Calendar, TrendingUp } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
 
+// Import Extracted Component
+// Loading StatCards from the components folder because it's a large reusable chunk of UI.
+import StatCards from '../components/finance/StatCards';
+
+// Define localized colors for the charts
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
-// Reusing StatCards Component
-const StatCards = ({ stats, onOpenModal }) => (
-    <div className="mb-6 md:mb-8">
-        <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-6 md:p-8 rounded-3xl shadow-2xl relative overflow-hidden border border-slate-700 mb-6">
-            <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-                <div>
-                    <p className="text-slate-400 font-bold text-[10px] md:text-xs uppercase tracking-widest mb-1 md:mb-2">Net Available Balance</p>
-                    <h2 className="text-4xl md:text-6xl font-bold font-mono tracking-tighter">
-                        ₱{stats.totalBalance.toLocaleString()}
-                    </h2>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-                    <button
-                        onClick={() => onOpenModal('income')}
-                        className="flex items-center justify-center gap-2 px-4 py-3 md:px-6 md:py-3 w-full md:w-auto text-white rounded-xl font-bold transition-all shadow-lg active:scale-95 bg-emerald-500 hover:bg-emerald-400 shadow-emerald-900/20"
-                    >
-                        <ArrowUpRight size={20} /> Add Income
-                    </button>
-                    <button
-                        onClick={() => onOpenModal('expense')}
-                        className="flex items-center justify-center gap-2 px-4 py-3 md:px-6 md:py-3 w-full md:w-auto text-white rounded-xl font-bold transition-all shadow-lg active:scale-95 bg-rose-500 hover:bg-rose-400 shadow-rose-900/20"
-                    >
-                        <ArrowDownRight size={20} /> Add Expense
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
-            <div className="bg-surface p-4 md:p-5 rounded-2xl border border-border shadow-sm">
-                <div className="flex justify-between items-start mb-2">
-                    <div className="p-2 bg-rose-500/10 rounded-lg text-rose-500"><TrendingDown size={20} /></div>
-                    <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Today's Burn</span>
-                </div>
-                <p className="text-xl md:text-2xl font-bold text-text-main">₱{stats.expenseToday.toLocaleString()}</p>
-            </div>
-            <div className="bg-surface p-4 md:p-5 rounded-2xl border border-border shadow-sm">
-                <div className="flex justify-between items-start mb-2">
-                    <div className="p-2 bg-orange-500/10 rounded-lg text-orange-500"><Calendar size={20} /></div>
-                    <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Weekly Burn</span>
-                </div>
-                <p className="text-xl md:text-2xl font-bold text-text-main">₱{stats.expenseWeek.toLocaleString()}</p>
-            </div>
-            <div className="bg-surface p-4 md:p-5 rounded-2xl border border-border shadow-sm">
-                <div className="flex justify-between items-start mb-2">
-                    <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500"><TrendingUp size={20} /></div>
-                    <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Income Today</span>
-                </div>
-                <p className="text-xl md:text-2xl font-bold text-text-main">₱{stats.incomeToday.toLocaleString()}</p>
-            </div>
-        </div>
-    </div>
-);
-
-const FinanceDashboard = ({ stats, logs, onOpenModal, budgetStats, pieData, barData }) => {
+/**
+ * FinanceDashboard Component
+ * 
+ * Displays the main analytical view of the finance app.
+ * Includes:
+ * 1. Top Stat Cards (Balance, Today's stats) via StatCards component.
+ * 2. Spend Breakdown Pie Chart.
+ * 3. Daily Trend Bar Chart.
+ * 
+ * Props:
+ * @param {object} stats - Aggregated statistics (totalBalance, etc).
+ * @param {array} logs - Raw transaction logs (unused directly here but passed down if needed, usually stats is enough).
+ * @param {function} onOpenModal - Callback to open the transaction modal.
+ * @param {array} budgetStats - (Optional) used for budget progress bars if we add them later.
+ * @param {array} pieData - Data formatted for the Pie Chart.
+ * @param {array} barData - Data formatted for the Bar Chart.
+ */
+const FinanceDashboard = ({ stats, onOpenModal, pieData, barData }) => {
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
+
+            {/* 1. TOP STATS CARDS */}
             <StatCards stats={stats} onOpenModal={onOpenModal} />
 
+            {/* 2. CHARTS SECTION */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* SPEND BREAKDOWN */}
+
+                {/* --- CHART 1: SPEND BREAKDOWN (PIE) --- */}
                 <div className="bg-surface border border-border rounded-3xl p-6 shadow-sm min-h-[350px] flex flex-col">
                     <h3 className="font-bold text-text-main mb-4">Spend Breakdown</h3>
                     <div className="flex-1">
+                        {/* ResponsiveContainer makes the chart adapt to parent size */}
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie
                                     data={pieData}
                                     cx="50%" cy="50%"
-                                    innerRadius={60}
+                                    innerRadius={60} // Donut chart style
                                     outerRadius={80}
-                                    paddingAngle={5}
+                                    paddingAngle={5} // Space between slices
                                     dataKey="value"
                                 >
+                                    {/* Map data to Cells with specific colors */}
                                     {pieData.map((entry, index) => (
                                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                     ))}
                                 </Pie>
+                                {/* Tooltip on hover */}
                                 <Tooltip
                                     contentStyle={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)', borderRadius: '12px' }}
                                     itemStyle={{ color: 'var(--text-main)' }}
@@ -92,7 +65,8 @@ const FinanceDashboard = ({ stats, logs, onOpenModal, budgetStats, pieData, barD
                             </PieChart>
                         </ResponsiveContainer>
                     </div>
-                    {/* Legend */}
+
+                    {/* Custom Legend Below Chart */}
                     <div className="flex flex-wrap justify-center gap-2 mt-4">
                         {pieData.map((entry, index) => (
                             <div key={entry.name} className="flex items-center gap-1 text-[10px] font-bold text-text-muted">
@@ -103,13 +77,16 @@ const FinanceDashboard = ({ stats, logs, onOpenModal, budgetStats, pieData, barD
                     </div>
                 </div>
 
-                {/* DAILY TREND */}
+                {/* --- CHART 2: DAILY TREND (BAR) --- */}
                 <div className="bg-surface border border-border rounded-3xl p-6 shadow-sm min-h-[350px] flex flex-col">
                     <h3 className="font-bold text-text-main mb-4">Daily Trend (Last 7 Days)</h3>
                     <div className="flex-1">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={barData}>
+                                {/* Grid lines behind bars */}
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
+
+                                {/* X Axis: Dates */}
                                 <XAxis
                                     dataKey="date"
                                     axisLine={false}
@@ -117,11 +94,15 @@ const FinanceDashboard = ({ stats, logs, onOpenModal, budgetStats, pieData, barD
                                     tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
                                     dy={10}
                                 />
+
+                                {/* Tooltip on hover */}
                                 <Tooltip
                                     cursor={{ fill: 'var(--surface-highlight)' }}
                                     contentStyle={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)', borderRadius: '12px' }}
                                     itemStyle={{ color: 'var(--text-main)' }}
                                 />
+
+                                {/* The Bars themselves */}
                                 <Bar dataKey="amount" fill="var(--primary)" radius={[4, 4, 0, 0]} />
                             </BarChart>
                         </ResponsiveContainer>

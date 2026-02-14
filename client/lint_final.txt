@@ -1,0 +1,38 @@
+
+C:\Users\dheyn\projectCS\hub.necookie.dev\client\src\components\finance\TransactionModal.jsx
+  32:13  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  30 |         if (isOpen) {
+  31 |             // If the modal is open, reset the form.
+> 32 |             setFormData({
+     |             ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  33 |                 amount: '',
+  34 |                 description: '',
+  35 |                 date: new Date().toISOString().split('T')[0], // Reset date to today  react-hooks/set-state-in-effect
+  40:8   warning  React Hook useEffect has a missing dependency: 'type'. Either include it or remove the dependency array. If 'setFormData' needs the current value of 'type', you can also switch to useReducer instead of useState and read 'type' in the reducer                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      react-hooks/exhaustive-deps
+
+C:\Users\dheyn\projectCS\hub.necookie.dev\client\src\pages\FinanceVault.jsx
+  50:9  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  48 |     // useEffect: Load data when component mounts
+  49 |     useEffect(() => {
+> 50 |         loadData();
+     |         ^^^^^^^^ Avoid calling setState() directly within an effect
+  51 |     }, []);
+  52 |
+  53 |     // Handler to create a new Fund or Goal  react-hooks/set-state-in-effect
+
+✖ 3 problems (2 errors, 1 warning)
+
