@@ -229,7 +229,7 @@ const Finance = () => {
     <div className="p-4 md:p-8 pb-32 max-w-[1400px] mx-auto min-h-screen">
 
       {/* --- PAGE HEADER --- */}
-      <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
+      <div className="flex flex-col md:flex-row justify-between md:items-end mb-8 gap-4">
         <div>
           {/* Title with Gradient Text */}
           <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-500 bg-clip-text text-transparent">
@@ -239,7 +239,7 @@ const Finance = () => {
         </div>
 
         {/* --- TABS COMPONENT --- */}
-        <div className="flex bg-surface border border-border p-1 rounded-2xl overflow-x-auto">
+        <div className="flex bg-surface border border-border p-1 rounded-2xl overflow-x-auto w-full md:w-auto custom-scrollbar">
           {tabs.map(tab => (
             <button
               key={tab.id}

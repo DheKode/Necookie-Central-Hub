@@ -160,8 +160,8 @@ const TransactionTable = ({ logs, loading, onDelete, categories }) => {
                                     <td className="p-3 md:p-4 text-right">
                                         <button
                                             onClick={() => onDelete(log.id)}
-                                            // Button is hidden by default on desktop until row is hovered (group-hover)
-                                            className="text-text-muted hover:text-red-500 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                                            // Mobile: Always visible. Desktop: Hidden until hover.
+                                            className="text-text-muted hover:text-red-500 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                                         >
                                             <Trash2 size={16} />
                                         </button>
