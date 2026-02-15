@@ -27,6 +27,23 @@ const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
  * @param {array} pieData - Data formatted for the Pie Chart.
  * @param {array} barData - Data formatted for the Bar Chart.
  */
+// Custom Tooltip Component that adapts to theme
+const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-surface border border-border p-3 rounded-xl shadow-xl">
+                <p className="font-bold text-text-main mb-1">{label ? label : payload[0].name}</p>
+                {payload.map((entry, index) => (
+                    <p key={index} className="text-sm" style={{ color: entry.color || entry.fill }}>
+                        {entry.name}: <span className="font-semibold">{entry.value.toLocaleString()}</span>
+                    </p>
+                ))}
+            </div>
+        );
+    }
+    return null;
+};
+
 const FinanceDashboard = ({ stats, onOpenModal, pieData, barData }) => {
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
@@ -58,10 +75,7 @@ const FinanceDashboard = ({ stats, onOpenModal, pieData, barData }) => {
                                     ))}
                                 </Pie>
                                 {/* Tooltip on hover */}
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)', borderRadius: '12px' }}
-                                    itemStyle={{ color: 'var(--text-main)' }}
-                                />
+                                <Tooltip content={<CustomTooltip />} />
                             </PieChart>
                         </ResponsiveContainer>
                     </div>
@@ -91,15 +105,14 @@ const FinanceDashboard = ({ stats, onOpenModal, pieData, barData }) => {
                                     dataKey="date"
                                     axisLine={false}
                                     tickLine={false}
-                                    tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
+                                    tick={{ fontSize: 10, fill: 'var(--text-muted)' }} // Recharts tick styles are inline, CSS vars usually work here but verify
                                     dy={10}
                                 />
 
                                 {/* Tooltip on hover */}
                                 <Tooltip
-                                    cursor={{ fill: 'var(--surface-highlight)' }}
-                                    contentStyle={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)', borderRadius: '12px' }}
-                                    itemStyle={{ color: 'var(--text-main)' }}
+                                    cursor={{ fill: 'var(--surface-highlight)', opacity: 0.5 }}
+                                    content={<CustomTooltip />}
                                 />
 
                                 {/* The Bars themselves */}
