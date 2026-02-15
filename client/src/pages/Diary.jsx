@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Plus, X, Smile, Meh, Frown, Zap, Coffee, Trash2, Calendar, 
-  Search, LayoutGrid, List, Filter 
+import {
+  Plus, X, Smile, Meh, Frown, Zap, Coffee, Trash2, Calendar,
+  Search, LayoutGrid, List, Filter
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { format } from 'date-fns';
@@ -18,7 +18,7 @@ const Diary = () => {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
+
   // --- NEW: Organization State ---
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'happy', 'neutral', etc.
@@ -33,9 +33,10 @@ const Diary = () => {
   const fetchEntries = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase
-      .from('journal_entries')
+      .from('personal_entries')
       .select('*')
       .eq('user_id', user.id)
+      .eq('type', 'journal')
       .order('created_at', { ascending: false });
     if (!error) setEntries(data);
     setLoading(false);
@@ -44,7 +45,13 @@ const Diary = () => {
   const handleSave = async () => {
     if (!content.trim()) return;
     const { data: { user } } = await supabase.auth.getUser();
-    const { data, error } = await supabase.from('journal_entries').insert([{ user_id: user.id, content, mood: selectedMood }]).select();
+    const { data, error } = await supabase.from('personal_entries').insert([{
+      user_id: user.id,
+      content,
+      mood: selectedMood,
+      type: 'journal',
+      is_private: true
+    }]).select();
     if (!error) {
       setEntries([data[0], ...entries]);
       setIsModalOpen(false);
@@ -55,7 +62,7 @@ const Diary = () => {
 
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this memory?")) return;
-    const { error } = await supabase.from('journal_entries').delete().eq('id', id);
+    const { error } = await supabase.from('personal_entries').delete().eq('id', id);
     if (!error) setEntries(entries.filter(e => e.id !== id));
   };
 
@@ -70,7 +77,7 @@ const Diary = () => {
 
   return (
     <div className="p-4 md:p-8 pb-24 space-y-8">
-      
+
       {/* HEADER & ACTIONS */}
       <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -84,13 +91,13 @@ const Diary = () => {
 
       {/* --- NEW: ORGANIZATION TOOLBAR --- */}
       <div className="max-w-5xl mx-auto bg-surface border border-border rounded-2xl p-2 md:p-3 shadow-sm flex flex-col md:flex-row gap-3">
-        
+
         {/* Search Bar */}
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={18} />
-          <input 
-            type="text" 
-            placeholder="Search your notes..." 
+          <input
+            type="text"
+            placeholder="Search your notes..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-background border border-border rounded-xl pl-10 pr-4 py-2.5 text-text-main text-sm focus:outline-none focus:border-primary transition-colors"
@@ -100,37 +107,37 @@ const Diary = () => {
         <div className="flex gap-2 overflow-x-auto pb-1 md:pb-0 custom-scrollbar">
           {/* Mood Filters */}
           <div className="flex bg-background border border-border rounded-xl p-1 gap-1">
-             <button 
-                onClick={() => setActiveFilter('all')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${activeFilter === 'all' ? 'bg-surface-highlight text-text-main shadow-sm' : 'text-text-muted hover:text-text-main'}`}
-             >
-               All
-             </button>
-             {Object.keys(moodConfig).map(mood => (
-               <button 
-                  key={mood}
-                  onClick={() => setActiveFilter(mood)}
-                  className={`p-1.5 rounded-lg transition-all ${activeFilter === mood ? 'bg-surface-highlight shadow-sm' : 'hover:bg-surface-highlight/50 opacity-50 hover:opacity-100'}`}
-                  title={moodConfig[mood].label}
-               >
-                 {React.createElement(moodConfig[mood].icon, { 
-                   size: 16, 
-                   className: activeFilter === mood ? 'text-primary' : 'text-text-muted' 
-                 })}
-               </button>
-             ))}
+            <button
+              onClick={() => setActiveFilter('all')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${activeFilter === 'all' ? 'bg-surface-highlight text-text-main shadow-sm' : 'text-text-muted hover:text-text-main'}`}
+            >
+              All
+            </button>
+            {Object.keys(moodConfig).map(mood => (
+              <button
+                key={mood}
+                onClick={() => setActiveFilter(mood)}
+                className={`p-1.5 rounded-lg transition-all ${activeFilter === mood ? 'bg-surface-highlight shadow-sm' : 'hover:bg-surface-highlight/50 opacity-50 hover:opacity-100'}`}
+                title={moodConfig[mood].label}
+              >
+                {React.createElement(moodConfig[mood].icon, {
+                  size: 16,
+                  className: activeFilter === mood ? 'text-primary' : 'text-text-muted'
+                })}
+              </button>
+            ))}
           </div>
 
           {/* View Toggle */}
           <div className="flex bg-background border border-border rounded-xl p-1 gap-1">
-            <button 
-              onClick={() => setViewMode('grid')} 
+            <button
+              onClick={() => setViewMode('grid')}
               className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-surface-highlight text-primary shadow-sm' : 'text-text-muted hover:text-text-main'}`}
             >
               <LayoutGrid size={16} />
             </button>
-            <button 
-              onClick={() => setViewMode('list')} 
+            <button
+              onClick={() => setViewMode('list')}
               className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-surface-highlight text-primary shadow-sm' : 'text-text-muted hover:text-text-main'}`}
             >
               <List size={16} />
@@ -149,14 +156,14 @@ const Diary = () => {
               <Filter size={24} />
             </div>
             <p className="text-text-muted mb-2">No entries match your filters.</p>
-            <button onClick={() => {setSearchQuery(""); setActiveFilter('all')}} className="text-primary font-bold hover:underline text-sm">Clear Filters</button>
+            <button onClick={() => { setSearchQuery(""); setActiveFilter('all') }} className="text-primary font-bold hover:underline text-sm">Clear Filters</button>
           </div>
         ) : (
           <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-3"}>
             {filteredEntries.map(entry => {
               const MoodIcon = moodConfig[entry.mood]?.icon || Meh;
               const style = moodConfig[entry.mood] || moodConfig.neutral;
-              
+
               if (viewMode === 'list') {
                 // --- LIST VIEW (Compact) ---
                 return (
@@ -168,9 +175,9 @@ const Diary = () => {
                       <div className="min-w-0 flex-1">
                         <p className="text-text-main text-sm font-medium truncate">{entry.content}</p>
                         <p className="text-text-muted text-xs flex items-center gap-2 mt-0.5">
-                           <span>{format(new Date(entry.created_at), "MMM d, h:mm a")}</span>
-                           <span className="w-1 h-1 rounded-full bg-border" />
-                           <span className="uppercase tracking-wider text-[10px]">{style.label}</span>
+                          <span>{format(new Date(entry.created_at), "MMM d, h:mm a")}</span>
+                          <span className="w-1 h-1 rounded-full bg-border" />
+                          <span className="uppercase tracking-wider text-[10px]">{style.label}</span>
                         </p>
                       </div>
                     </div>
@@ -214,24 +221,24 @@ const Diary = () => {
           <div className="bg-surface w-full max-w-lg rounded-3xl shadow-2xl border border-border overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-border flex justify-between items-center">
               <h3 className="text-lg font-bold text-text-main">New Entry</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-text-muted hover:text-text-main"><X size={20}/></button>
+              <button onClick={() => setIsModalOpen(false)} className="text-text-muted hover:text-text-main"><X size={20} /></button>
             </div>
-            
+
             <div className="p-6 space-y-4">
               <div className="flex gap-2 justify-center pb-4">
                 {Object.keys(moodConfig).map((moodKey) => {
-                   const Icon = moodConfig[moodKey].icon;
-                   const isSelected = selectedMood === moodKey;
-                   return (
-                     <button
-                       key={moodKey}
-                       onClick={() => setSelectedMood(moodKey)}
-                       className={`p-3 rounded-xl transition-all ${isSelected ? 'bg-primary text-white scale-110 shadow-lg' : 'bg-background text-text-muted hover:bg-surface-highlight'}`}
-                       title={moodKey}
-                     >
-                       <Icon size={20} />
-                     </button>
-                   );
+                  const Icon = moodConfig[moodKey].icon;
+                  const isSelected = selectedMood === moodKey;
+                  return (
+                    <button
+                      key={moodKey}
+                      onClick={() => setSelectedMood(moodKey)}
+                      className={`p-3 rounded-xl transition-all ${isSelected ? 'bg-primary text-white scale-110 shadow-lg' : 'bg-background text-text-muted hover:bg-surface-highlight'}`}
+                      title={moodKey}
+                    >
+                      <Icon size={20} />
+                    </button>
+                  );
                 })}
               </div>
 
@@ -243,7 +250,7 @@ const Diary = () => {
                 autoFocus
               />
             </div>
-            
+
             <div className="p-6 bg-surface-highlight border-t border-border flex justify-end gap-3">
               <button onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-text-muted font-bold hover:bg-border rounded-xl transition-colors">Cancel</button>
               <button onClick={handleSave} className="px-5 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-sky-600 transition-colors shadow-lg shadow-sky-500/20">Save Entry</button>
