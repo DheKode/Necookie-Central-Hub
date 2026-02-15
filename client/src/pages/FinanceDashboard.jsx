@@ -111,7 +111,7 @@ const FinanceDashboard = ({ stats, onOpenModal, pieData, barData }) => {
 
                                 {/* Tooltip on hover */}
                                 <Tooltip
-                                    cursor={{ fill: 'var(--surface-highlight)', opacity: 0.5 }}
+                                    cursor={{ fill: 'var(--surface-highlight)', opacity: 0.1 }}
                                     content={<CustomTooltip />}
                                 />
 
