@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Shield, X, ArrowDownRight } from 'lucide-react';
+import { Plus, Shield, X, ArrowDownRight, Check } from 'lucide-react';
 import { api } from '../../api';
 
 /**
