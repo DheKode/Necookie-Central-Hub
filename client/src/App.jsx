@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './supabaseClient';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'; 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import MainLayout from './components/MainLayout';
 import { Zap } from 'lucide-react';
 
@@ -12,7 +12,8 @@ import Dashboard from './pages/Dashboard';
 import History from './pages/History';
 import Diary from './pages/Diary';
 import Vault from './pages/Vault';
-import Finance from './pages/Finance'; 
+import Finance from './pages/Finance';
+import Todo from './pages/Todo';
 
 const queryClient = new QueryClient();
 
@@ -43,7 +44,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <Router>
         <Routes>
-          
+
           {/* PUBLIC ROOT: LANDING (Contains Login Modal) */}
           <Route path="/" element={!session ? <Landing /> : <Navigate to="/dashboard" />} />
 
@@ -52,21 +53,22 @@ function App() {
 
           {/* PROTECTED APP ROUTES */}
           <Route path="/*" element={session ? (
-              <MainLayout>
-                <Routes>
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                  <Route path="/history" element={<History />} />
-                  <Route path="/diary" element={<Diary />} />
-                  <Route path="/finance" element={<Finance />} />
-                  <Route path="/vault" element={<Vault />} />
-                  <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                </Routes>
-              </MainLayout>
-            ) : (
-              // If logged out, go back to Landing
-              <Navigate to="/" />
-            )} 
+            <MainLayout>
+              <Routes>
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/history" element={<History />} />
+                <Route path="/diary" element={<Diary />} />
+                <Route path="/finance" element={<Finance />} />
+                <Route path="/todo" element={<Todo />} />
+                <Route path="/vault" element={<Vault />} />
+                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              </Routes>
+            </MainLayout>
+          ) : (
+            // If logged out, go back to Landing
+            <Navigate to="/" />
+          )}
           />
 
         </Routes>

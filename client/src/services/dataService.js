@@ -26,16 +26,74 @@ export const dataService = {
         return supabase.from('meals').insert([{ user_id: user.id, meal_name, calories }]);
     },
 
-    // --- TASKS ---
-    fetchTasks: async () => {
+    // --- TODO LIST FEATURE (TASKS, PROJECTS, SUBTASKS) ---
+
+    // 1. Projects
+    fetchProjects: async () => {
         const user = await getUser();
-        const { data } = await supabase.from('tasks').select('*').eq('user_id', user.id).order('completed', { ascending: true }).order('created_at', { ascending: false });
-        return data;
+        const { data } = await supabase
+            .from('projects')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: true });
+        return data || [];
     },
 
-    addTask: async (description) => {
+    addProject: async ({ name, color, icon }) => {
         const user = await getUser();
-        return supabase.from('tasks').insert([{ user_id: user.id, description, completed: false }]);
+        return supabase.from('projects').insert([{ user_id: user.id, name, color, icon }]).select();
+    },
+
+    deleteProject: async (id) => {
+        return supabase.from('projects').delete().eq('id', id);
+    },
+
+    // 2. Tasks (Enhanced)
+    fetchTasks: async () => {
+        const user = await getUser();
+        // Fetch tasks and include their subtasks
+        // Note: Supabase join syntax
+        const { data } = await supabase
+            .from('tasks')
+            .select(`
+                *,
+                subtasks (*)
+            `)
+            .eq('user_id', user.id)
+            .order('completed', { ascending: true }) // Incomplete first
+            .order('priority', { ascending: false })  // High priority first (if we mapped high->3, etc. but strings work alphabetically inverted... need care)
+            .order('created_at', { ascending: false });
+        return data || [];
+    },
+
+    addTask: async (taskData) => {
+        const user = await getUser();
+        const { title, description, project_id, due_date, priority, tags, notes } = taskData;
+
+        // Handle legacy 'description' field vs new 'title'
+        // If 'title' is missing, use 'description' as title
+        const finalTitle = title || description || 'Untitled Task';
+
+        return supabase.from('tasks').insert([{
+            user_id: user.id,
+            title: finalTitle,
+            description: description, // Keep for backward compat if needed
+            project_id: project_id || null, // Sanitize: empty string -> null
+            due_date: due_date || null,     // Sanitize: empty string -> null
+            priority: priority || 'medium',
+            tags: tags || [],
+            notes,
+            completed: false
+        }]).select();
+    },
+
+    updateTask: async (id, updates) => {
+        // Sanitize updates
+        const sanitizedUpdates = { ...updates };
+        if (sanitizedUpdates.project_id === '') sanitizedUpdates.project_id = null;
+        if (sanitizedUpdates.due_date === '') sanitizedUpdates.due_date = null;
+
+        return supabase.from('tasks').update(sanitizedUpdates).eq('id', id).select();
     },
 
     toggleTask: async ({ id, status }) => {
@@ -44,6 +102,19 @@ export const dataService = {
 
     deleteTask: async (id) => {
         return supabase.from('tasks').delete().eq('id', id);
+    },
+
+    // 3. Subtasks
+    addSubtask: async ({ task_id, title }) => {
+        return supabase.from('subtasks').insert([{ task_id, title, completed: false }]).select();
+    },
+
+    toggleSubtask: async (id, status) => {
+        return supabase.from('subtasks').update({ completed: status }).eq('id', id);
+    },
+
+    deleteSubtask: async (id) => {
+        return supabase.from('subtasks').delete().eq('id', id);
     },
 
     // --- EXERCISE ---
