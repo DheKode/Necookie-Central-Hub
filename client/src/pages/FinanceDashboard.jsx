@@ -75,7 +75,7 @@ const FinanceDashboard = ({ stats, onOpenModal, pieData, barData }) => {
                                     ))}
                                 </Pie>
                                 {/* Tooltip on hover */}
-                                <Tooltip content={<CustomTooltip />} />
+                                <Tooltip content={<CustomTooltip />} isAnimationActive={false} />
                             </PieChart>
                         </ResponsiveContainer>
                     </div>
@@ -113,6 +113,7 @@ const FinanceDashboard = ({ stats, onOpenModal, pieData, barData }) => {
                                 <Tooltip
                                     cursor={{ fill: 'var(--surface-highlight)', opacity: 0.1 }}
                                     content={<CustomTooltip />}
+                                    isAnimationActive={false}
                                 />
 
                                 {/* The Bars themselves */}
