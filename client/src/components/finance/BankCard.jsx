@@ -26,6 +26,12 @@ const BankCard = ({ fund, onUpdate, onDelete, walletBalance, onTransaction }) =>
     // State for the amount input field during deposit/withdraw
     const [amount, setAmount] = useState('');
 
+    // State for wallet synchronization (Deduct/Add to wallet?)
+    const [syncWallet, setSyncWallet] = useState(true);
+
+    // State for delete confirmation
+    const [confirmDelete, setConfirmDelete] = useState(false);
+
     // State to track whether we are 'deposit'ing or 'withdraw'ing
     const [mode, setMode] = useState('deposit');
 
@@ -39,8 +45,8 @@ const BankCard = ({ fund, onUpdate, onDelete, walletBalance, onTransaction }) =>
         const val = parseFloat(amount);
 
         // 2. Logical Validation based on Mode
-        // Cannot deposit more than you have in your wallet.
-        if (mode === 'deposit' && val > walletBalance) {
+        // Cannot deposit more than you have in your wallet (ONLY IF SYNCING).
+        if (mode === 'deposit' && syncWallet && val > walletBalance) {
             alert("Insufficient wallet balance!");
             return;
         }
@@ -59,29 +65,32 @@ const BankCard = ({ fund, onUpdate, onDelete, walletBalance, onTransaction }) =>
         const { data, error } = await api.updateFund(fund.id, { current_amount: newAmount });
 
         if (!error && data) {
-            // 5. Create a Transaction Record in History (if successful)
-            if (mode === 'deposit') {
-                await onTransaction({
-                    type: 'expense', // Money leaving wallet is an expense to the wallet logic (transfer)
-                    amount: val,
-                    category: 'Savings',
-                    description: `Transfer to ${fund.name}`,
-                    date: new Date().toISOString().split('T')[0]
-                });
-            } else if (mode === 'withdraw') {
-                await onTransaction({
-                    type: 'income', // Money returning to wallet is income
-                    amount: val,
-                    category: 'Savings',
-                    description: `Withdraw from ${fund.name}`,
-                    date: new Date().toISOString().split('T')[0]
-                });
+            // 5. Create a Transaction Record in History (ONLY IF SYNCING)
+            if (syncWallet) {
+                if (mode === 'deposit') {
+                    await onTransaction({
+                        type: 'expense', // Money leaving wallet is an expense to the wallet logic (transfer)
+                        amount: val,
+                        category: 'Savings',
+                        description: `Transfer to ${fund.name}`,
+                        date: new Date().toISOString().split('T')[0]
+                    });
+                } else if (mode === 'withdraw') {
+                    await onTransaction({
+                        type: 'income', // Money returning to wallet is income
+                        amount: val,
+                        category: 'Savings',
+                        description: `Withdraw from ${fund.name}`,
+                        date: new Date().toISOString().split('T')[0]
+                    });
+                }
             }
 
             // 6. Update Parent State & Reset Form
             onUpdate(data[0]);
             setAmount('');
             setIsEditing(false);
+            setSyncWallet(true); // Reset to default
         }
     };
 
@@ -132,6 +141,20 @@ const BankCard = ({ fund, onUpdate, onDelete, walletBalance, onTransaction }) =>
                         >
                             Withdraw
                         </button>
+                    </div>
+
+                    {/* Wallet Sync Toggle */}
+                    <div className="flex items-center gap-2 mb-4 px-1">
+                        <input
+                            type="checkbox"
+                            id="syncWallet"
+                            checked={syncWallet}
+                            onChange={(e) => setSyncWallet(e.target.checked)}
+                            className="w-4 h-4 accent-indigo-500 cursor-pointer"
+                        />
+                        <label htmlFor="syncWallet" className="text-xs text-text-muted cursor-pointer select-none">
+                            {mode === 'deposit' ? 'Deduct from Wallet' : 'Add to Wallet'}
+                        </label>
                     </div>
 
                     {/* Amount Input */}
@@ -229,12 +252,32 @@ const BankCard = ({ fund, onUpdate, onDelete, walletBalance, onTransaction }) =>
                 </div>
 
                 {/* Delete Button (Hidden unless card is hovered) */}
-                <button
-                    onClick={() => onDelete(fund.id)}
-                    className="absolute top-4 right-4 text-white/40 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                >
-                    <X size={16} />
-                </button>
+                {confirmDelete ? (
+                    <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-1 animate-in fade-in duration-200">
+                        <p className="text-[10px] text-white font-bold bg-black/50 px-2 py-1 rounded-md backdrop-blur-sm">Delete?</p>
+                        <div className="flex gap-1">
+                            <button
+                                onClick={() => onDelete(fund.id)}
+                                className="p-1.5 bg-rose-500 text-white rounded-lg hover:bg-rose-600 shadow-sm transition-colors"
+                            >
+                                <Check size={14} />
+                            </button>
+                            <button
+                                onClick={() => setConfirmDelete(false)}
+                                className="p-1.5 bg-white/20 text-white rounded-lg hover:bg-white/30 backdrop-blur-sm transition-colors"
+                            >
+                                <X size={14} />
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <button
+                        onClick={() => setConfirmDelete(true)}
+                        className="absolute top-4 right-4 text-white/40 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                    >
+                        <X size={16} />
+                    </button>
+                )}
             </div>
 
             {/* --- PROGRESS BAR BELOW CARD --- */}
