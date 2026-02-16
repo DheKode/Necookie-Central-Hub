@@ -15,114 +15,136 @@ import { ArrowUpRight, ArrowDownRight, X } from 'lucide-react';
  * @param {function} onConfirm - Callback function to submit the transaction data.
  * @param {object} categories - Pass categories as prop to avoid circular dependency or make it self-contained
  */
-const TransactionModal = ({ isOpen, type, onClose, onConfirm, categories }) => {
+const TransactionModal = ({ isOpen, type, onClose, onConfirm, categories, customCategories = [] }) => {
     // State to hold the form data entered by the user.
-    // We initialize it with default empty values.
     const [formData, setFormData] = useState({
-        amount: '',       // The monetary value of the transaction
+        amount: '',
         category: type === 'income' ? categories.INCOME[0] : categories.EXPENSE[0],
-        description: '',  // A brief note about the transaction
-        date: new Date().toISOString().split('T')[0] // Default to today's date (YYYY-MM-DD format)
+        customCategory: '', // New state for custom input
+        description: '',
+        date: new Date().toISOString().split('T')[0]
     });
+
+    // Reset form when modal opens or type/categories change
+    React.useEffect(() => {
+        if (isOpen) {
+            setFormData(prev => ({
+                ...prev,
+                category: type === 'income' ? categories.INCOME[0] : categories.EXPENSE[0],
+                customCategory: ''
+            }));
+        }
+    }, [isOpen, type, categories]);
 
     // Function to handle the form submission.
     const handleSubmit = () => {
-        // Validation: Check if amount or category is missing.
-        // If either is missing, we stop here and do not proceed.
-        if (!formData.amount || !formData.category) return;
+        // Determine final category value
+        let finalCategory = formData.category;
+        if (formData.category === 'Other') {
+            // Must have a custom value if "Other" is selected
+            if (!formData.customCategory.trim()) return;
+            finalCategory = formData.customCategory.trim();
+        }
 
-        // Call the onConfirm prop with the formatted transaction data.
+        if (!formData.amount || !finalCategory) return;
+
         onConfirm({
-            type, // 'income' or 'expense'
-            amount: parseFloat(formData.amount), // Convert string amount to number
-            category: formData.category,
+            type,
+            amount: parseFloat(formData.amount),
+            category: finalCategory,
             description: formData.description,
             date: formData.date
         });
     };
 
-    // If the modal is not open (isOpen is false), we return null to render nothing.
     if (!isOpen) return null;
 
-    // Determine which set of categories to display based on the transaction type.
-    // Using the passed categories prop to keep it pure if possible, or fallback.
     const currentCategories = type === 'income' ? categories.INCOME : categories.EXPENSE;
-
-    // Determine the color theme (Emerald for Income, Rose for Expense).
     const colorTheme = type === 'income' ? 'emerald' : 'rose';
 
     return (
-        // Backdrop: A semi-transparent black overlay that covers the whole screen.
-        // 'fixed inset-0' positions it over the entire viewport.
-        // 'z-50' ensures it sets on top of other content.
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-surface w-full max-w-md rounded-3xl shadow-2xl border border-border animate-in zoom-in-95 duration-200 overflow-hidden max-h-[90vh] flex flex-col">
 
-            {/* Modal Container: The actual popup window */}
-            <div className="bg-surface w-full max-w-md rounded-3xl shadow-2xl border border-border animate-in zoom-in-95 duration-200 overflow-hidden">
-
-                {/* Header Section: Title and Close Button */}
-                <div className={`p-4 md:p-6 border-b border-border flex justify-between items-center bg-${colorTheme}-500/10`}>
-                    {/* Title with Icon */}
+                {/* Header */}
+                <div className={`p-4 md:p-6 border-b border-border flex justify-between items-center bg-${colorTheme}-500/10 shrink-0`}>
                     <h3 className={`text-lg font-bold flex items-center gap-2 text-${colorTheme}-600`}>
-                        {/* Display ArrowUpRight for Income, ArrowDownRight for Expense */}
                         {type === 'income' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
                         Add {type === 'income' ? 'Income' : 'Expense'}
                     </h3>
-
-                    {/* Close Button */}
                     <button onClick={onClose} className="text-text-muted hover:text-text-main">
                         <X size={20} />
                     </button>
                 </div>
 
-                {/* Body Section: Form Inputs */}
-                <div className="p-4 md:p-6 space-y-4">
+                {/* Scrollable Body */}
+                <div className="p-4 md:p-6 space-y-4 overflow-y-auto custom-scrollbar">
 
-                    {/* Amount Input Group */}
+                    {/* Amount */}
                     <div>
                         <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Amount</label>
                         <div className="relative">
-                            {/* Currency Symbol Positioned Absolutely inside the input container */}
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted font-bold">₱</span>
                             <input
                                 type="number"
                                 value={formData.amount}
-                                // Update state on change
                                 onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                                 placeholder="0.00"
-                                // Styling the input to look prominent
                                 className="w-full bg-background border border-border rounded-xl pl-8 p-3 text-text-main focus:outline-none focus:border-primary font-mono font-bold text-lg"
-                                autoFocus // Automatically focus this input when modal opens
+                                autoFocus
                             />
                         </div>
                     </div>
 
-                    {/* Category Selection Group */}
+                    {/* Category */}
                     <div>
                         <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Category</label>
-                        {/* Grid layout for category buttons */}
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-2 gap-2 mb-2">
                             {currentCategories.map(cat => (
                                 <button
                                     key={cat}
-                                    // Update category in state when clicked
                                     onClick={() => setFormData({ ...formData, category: cat })}
-                                    // Conditional styling: Highlight if selected, otherwise standard style
                                     className={`p-2 rounded-lg text-xs font-bold border transition-all ${formData.category === cat
-                                        ? 'bg-primary text-white border-primary shadow-md' // Selected Style
-                                        : 'bg-background text-text-muted border-border hover:border-primary' // Unselected Style
+                                        ? 'bg-primary text-white border-primary shadow-md'
+                                        : 'bg-background text-text-muted border-border hover:border-primary'
                                         }`}
                                 >
                                     {cat}
                                 </button>
                             ))}
                         </div>
+
+                        {/* Custom Category Input (Only if "Other" is selected) */}
+                        {formData.category === 'Other' && (
+                            <div className="animate-in fade-in slide-in-from-top-2 duration-200 space-y-2">
+                                <input
+                                    type="text"
+                                    value={formData.customCategory}
+                                    onChange={(e) => setFormData({ ...formData, customCategory: e.target.value })}
+                                    placeholder="Type custom category..."
+                                    className="w-full bg-surface-highlight border border-primary/50 rounded-xl p-3 text-text-main text-sm focus:outline-none focus:border-primary placeholder:text-text-muted/50"
+                                    autoFocus
+                                />
+                                {/* Chips for existing custom categories */}
+                                {customCategories.length > 0 && (
+                                    <div className="flex flex-wrap gap-2">
+                                        {customCategories.map(customCat => (
+                                            <button
+                                                key={customCat}
+                                                onClick={() => setFormData({ ...formData, customCategory: customCat })}
+                                                className="px-3 py-1 bg-surface-highlight border border-border rounded-full text-xs text-text-muted hover:text-text-main hover:border-primary transition-colors"
+                                            >
+                                                {customCat}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
 
-                    {/* Description and Date Inputs Row */}
+                    {/* Description & Date */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-                        {/* Description Input */}
                         <div>
                             <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Description</label>
                             <input
@@ -133,8 +155,6 @@ const TransactionModal = ({ isOpen, type, onClose, onConfirm, categories }) => {
                                 className="w-full bg-background border border-border rounded-xl p-3 text-text-main text-sm focus:outline-none focus:border-primary"
                             />
                         </div>
-
-                        {/* Date Input */}
                         <div>
                             <label className="block text-xs font-bold text-text-muted uppercase mb-1.5">Date</label>
                             <input
@@ -147,18 +167,15 @@ const TransactionModal = ({ isOpen, type, onClose, onConfirm, categories }) => {
                     </div>
                 </div>
 
-                {/* Footer Section: Action Buttons */}
-                <div className="p-4 md:p-6 bg-surface-highlight border-t border-border flex justify-end gap-3">
-                    {/* Cancel Button */}
+                {/* Footer */}
+                <div className="p-4 md:p-6 bg-surface-highlight border-t border-border flex justify-end gap-3 shrink-0">
                     <button onClick={onClose} className="px-5 py-2.5 text-text-muted font-bold hover:bg-border rounded-xl transition-colors">
                         Cancel
                     </button>
-
-                    {/* Confirm Button */}
                     <button
                         onClick={handleSubmit}
-                        // Dynamic styling based on theme (emerald vs rose)
-                        className={`px-6 py-2.5 text-white font-bold rounded-xl transition-all shadow-lg active:scale-95 bg-${colorTheme}-500 hover:bg-${colorTheme}-600 shadow-${colorTheme}-500/20`}
+                        disabled={formData.category === 'Other' && !formData.customCategory.trim()}
+                        className={`px-6 py-2.5 text-white font-bold rounded-xl transition-all shadow-lg active:scale-95 bg-${colorTheme}-500 hover:bg-${colorTheme}-600 shadow-${colorTheme}-500/20 disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                         Confirm
                     </button>

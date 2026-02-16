@@ -182,8 +182,23 @@ const useFinance = () => {
     return { pieData, barData };
   }, [logs]);
 
+  // Calculation: Custom Categories (Used for "Other" suggestions)
+  const customCategories = useMemo(() => {
+    // Get all unique categories that are NOT in the default list
+    const defaults = [...CATEGORIES.INCOME, ...CATEGORIES.EXPENSE];
+    const custom = new Set();
+
+    logs.forEach(log => {
+      if (!defaults.includes(log.category)) {
+        custom.add(log.category);
+      }
+    });
+
+    return Array.from(custom);
+  }, [logs]);
+
   // Return all state and functions needed by the UI
-  return { logs, loading, stats, addTransaction, deleteTransaction, budgetStats, chartData };
+  return { logs, loading, stats, addTransaction, deleteTransaction, budgetStats, chartData, customCategories };
 };
 
 // ==========================================
@@ -191,7 +206,8 @@ const useFinance = () => {
 // ==========================================
 const Finance = () => {
   // Use the custom hook to get all data and logic
-  const { logs, loading, stats, addTransaction, deleteTransaction, budgetStats, chartData } = useFinance();
+  // Use the custom hook to get all data and logic
+  const { logs, loading, stats, addTransaction, deleteTransaction, budgetStats, chartData, customCategories } = useFinance();
 
   // State for the Transaction Modal (is it open? is it income or expense?)
   const [modalConfig, setModalConfig] = useState({ isOpen: false, type: 'income' });
@@ -311,6 +327,7 @@ const Finance = () => {
         onClose={closeModal}
         onConfirm={handleConfirmTransaction}
         categories={CATEGORIES}
+        customCategories={customCategories}
       />
     </div>
   );
