@@ -60,26 +60,37 @@ const Todo = () => {
 
     // Tasks
     const handleSaveTask = async (taskData) => {
-        let result;
-        if (taskData.id) {
-            // Update
-            result = await dataService.updateTask(taskData.id, taskData);
-            if (!result.error && result.data) {
-                setTasks(tasks.map(t => t.id === taskData.id ? result.data[0] : t));
+        console.log("Todo: handleSaveTask called with", taskData);
+        try {
+            let result;
+            if (taskData.id) {
+                // Update
+                result = await dataService.updateTask(taskData.id, taskData);
+                if (!result.error && result.data) {
+                    setTasks(tasks.map(t => t.id === taskData.id ? result.data[0] : t));
+                }
+            } else {
+                // Create
+                result = await dataService.addTask(taskData);
+                if (!result.error && result.data) {
+                    setTasks([result.data[0], ...tasks]);
+                }
             }
-        } else {
-            // Create
-            result = await dataService.addTask(taskData);
-            if (!result.error && result.data) {
-                setTasks([result.data[0], ...tasks]);
-            }
-        }
 
-        if (!result.error) {
-            setIsModalOpen(false);
-            setEditingTask(null);
-            // Refresh to get strict relation data if valid
-            loadData();
+            console.log("Todo: Saved result", result);
+
+            if (!result.error) {
+                setIsModalOpen(false);
+                setEditingTask(null);
+                // Refresh to get strict relation data if valid
+                loadData();
+            } else {
+                console.error("Save failed:", result.error);
+                alert(`Failed to save task: ${result.error?.message || JSON.stringify(result.error)}`);
+            }
+        } catch (error) {
+            console.error("CRITICAL SAVE ERROR:", error);
+            alert(`Critical error saving task: ${error.message}`);
         }
     };
 
