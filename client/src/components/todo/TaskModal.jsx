@@ -1,11 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, Flag, Hash, CheckSquare, Plus, Trash2 } from 'lucide-react';
-import { api } from '../../api'; // Assuming we can import api here or pass functionality down
+import { api } from '../../api';
 
-// Simple API wrapper for subtasks since we are inside a component
-// Ideally this should be passed as props, but for speed we might do this or rely on parent
-// Let's rely on props to keep it clean.
-
+/**
+ * TaskModal Component
+ * 
+ * This component renders a popup modal for creating or editing tasks.
+ * It demonstrates standard React patterns like controlled forms, 
+ * side-effects (useEffect), and passing data via props.
+ * 
+ * @param {Object} props
+ * @param {boolean} props.isOpen - Determines if the modal should be visible.
+ * @param {Function} props.onClose - Function to call when the user clicks 'Cancel' or the 'X' button.
+ * @param {Function} props.onSave - Function to call with the form data when 'Save Task' is clicked.
+ * @param {Object|null} props.task - If this is populated, we are in "Edit Mode". If null, we are in "Create Mode".
+ */
 const TaskModal = ({
     isOpen,
     onClose,
@@ -16,9 +25,10 @@ const TaskModal = ({
     onToggleSubtask,
     onDeleteSubtask
 }) => {
+    // `useState` hooks manage the data the user is currently typing into the form.
+    // Whenever `setFormData` is called, React re-renders this component to show the new values.
     const [formData, setFormData] = useState({
         title: '',
-        description: '', // description is now title in new schema, but we keep 'notes' for details
         notes: '',
         due_date: '',
         priority: 'medium',
@@ -28,9 +38,11 @@ const TaskModal = ({
 
     const [newSubtask, setNewSubtask] = useState('');
 
-    // Effect to load task data if editing
+    // `useEffect` runs code after the component renders, or when specific variables change.
+    // The array `[task, isOpen]` tells React: "Run this code ONLY if `task` or `isOpen` changes."
     useEffect(() => {
         if (task) {
+            // Edit Mode: Prefill the form with existing task data
             setFormData({
                 title: task.title || task.description || '',
                 notes: task.notes || '',
@@ -40,7 +52,7 @@ const TaskModal = ({
                 tags: task.tags || []
             });
         } else {
-            // Reset for new task
+            // Create Mode: Reset the form to empty defaults
             setFormData({
                 title: '',
                 notes: '',
@@ -52,13 +64,20 @@ const TaskModal = ({
         }
     }, [task, isOpen]);
 
+    // Fast-fail: if the modal isn't supposed to be open, render absolutely nothing.
     if (!isOpen) return null;
 
+    /**
+     * Handles the final save action before passing data up to the parent component.
+     */
     const handleSubmit = () => {
+        // Validation: Prevent saving completely empty tasks
         if (!formData.title.trim()) return;
+
+        // Pass the local `formData` state up to the parent via the `onSave` prop.
         onSave({
             ...formData,
-            id: task?.id // Pass ID if editing
+            id: task?.id // Include the ID only if we are editing an existing task
         });
     };
 
@@ -141,8 +160,8 @@ const TaskModal = ({
                                         key={p}
                                         onClick={() => setFormData({ ...formData, priority: p })}
                                         className={`flex-1 text-xs font-bold py-1.5 rounded-lg capitalize transition-all ${formData.priority === p
-                                                ? 'bg-background shadow-sm text-primary'
-                                                : 'text-text-muted hover:text-text-main'
+                                            ? 'bg-background shadow-sm text-primary'
+                                            : 'text-text-muted hover:text-text-main'
                                             }`}
                                     >
                                         {p}

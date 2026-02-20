@@ -1,5 +1,11 @@
 import { supabase } from '../supabaseClient';
 
+/**
+ * Helper function to retrieve the currently logged-in user.
+ * Many queries require the user's ID to fetch only their specific data.
+ * @returns {Object} The user object containing id, email, etc.
+ * @throws {Error} If no user is authenticated.
+ */
 const getUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("No user logged in");
@@ -8,34 +14,71 @@ const getUser = async () => {
 
 export const dataService = {
     // --- UNIFIED HISTORY ---
+
+    /**
+     * Fetches a combined feed of recent user activity.
+     * @param {number} limit - Maximum number of records to return (default 50).
+     * @returns {Array} List of historical activity records.
+     */
     fetchUnifiedHistory: async (limit = 50) => {
-        const { data } = await supabase.from('unified_history').select('*').order('timestamp', { ascending: false }).limit(limit);
+        // `from('table_name')` points to a specific table in Supabase.
+        // `.select('*')` gets all columns.
+        const { data } = await supabase
+            .from('unified_history')
+            .select('*')
+            .order('timestamp', { ascending: false }) // Sort newest first
+            .limit(limit);
         return data;
     },
 
     // --- MEALS ---
+
+    /**
+     * Fetches today's logged meals for the current user.
+     * @returns {Array} List of meal records for today.
+     */
     fetchMeals: async () => {
         const user = await getUser();
-        const today = new Date(); today.setHours(0, 0, 0, 0);
-        const { data } = await supabase.from('meals').select('*').eq('user_id', user.id).gte('created_at', today.toISOString()).order('created_at', { ascending: false });
+        // Create a Date object set to the very start of today (midnight)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // `.eq` (equals) matches the user_id column to the current user's ID.
+        // `.gte` (greater than or equal to) ensures we only get records from today onwards.
+        const { data } = await supabase
+            .from('meals')
+            .select('*')
+            .eq('user_id', user.id)
+            .gte('created_at', today.toISOString())
+            .order('created_at', { ascending: false });
         return data;
     },
 
+    /**
+     * Logs a new meal into the database.
+     * @param {Object} payload - Contains meal_name and calories.
+     */
     addMeal: async ({ meal_name, calories }) => {
         const user = await getUser();
+        // `.insert` adds a new row to the table. An array of objects is passed.
         return supabase.from('meals').insert([{ user_id: user.id, meal_name, calories }]);
     },
 
     // --- TODO LIST FEATURE (TASKS, PROJECTS, SUBTASKS) ---
 
     // 1. Projects
+
+    /**
+     * Fetches all projects created by the logged-in user.
+     * @returns {Array} List of projects.
+     */
     fetchProjects: async () => {
         const user = await getUser();
         const { data } = await supabase
             .from('projects')
             .select('*')
             .eq('user_id', user.id)
-            .order('created_at', { ascending: true });
+            .order('created_at', { ascending: true }); // Oldest first
         return data || [];
     },
 
@@ -49,10 +92,17 @@ export const dataService = {
     },
 
     // 2. Tasks (Enhanced)
+
+    /**
+     * Fetches tasks and their associated subtasks.
+     * This uses Supabase's foreign key relationships to perform a "join".
+     * @returns {Array} List of tasks, where each task has a `subtasks` array.
+     */
     fetchTasks: async () => {
         const user = await getUser();
-        // Fetch tasks and include their subtasks
-        // Note: Supabase join syntax
+        // The syntax `*, subtasks (*)` tells Supabase: 
+        // "Get all columns from 'tasks', AND get all related rows from 'subtasks'".
+        // This requires a foreign key linking subtasks to tasks in the database.
         const { data } = await supabase
             .from('tasks')
             .select(`
@@ -60,26 +110,30 @@ export const dataService = {
                 subtasks (*)
             `)
             .eq('user_id', user.id)
-            .order('completed', { ascending: true }) // Incomplete first
-            .order('priority', { ascending: false })  // High priority first (if we mapped high->3, etc. but strings work alphabetically inverted... need care)
+            .order('completed', { ascending: true }) // Show incomplete tasks at the top
+            .order('priority', { ascending: false }) // Show high priority first
             .order('created_at', { ascending: false });
         return data || [];
     },
 
+    /**
+     * Adds a new task.
+     * @param {Object} taskData - The details of the task.
+     */
     addTask: async (taskData) => {
         const user = await getUser();
         const { title, description, project_id, due_date, priority, tags, notes } = taskData;
 
-        // Handle legacy 'description' field vs new 'title'
-        // If 'title' is missing, use 'description' as title
+        // Legacy Support: If 'title' wasn't provided, fallback to 'description'.
         const finalTitle = title || description || 'Untitled Task';
 
         return supabase.from('tasks').insert([{
             user_id: user.id,
             title: finalTitle,
-            description: description, // Keep for backward compat if needed
-            project_id: project_id || null, // Sanitize: empty string -> null
-            due_date: due_date || null,     // Sanitize: empty string -> null
+            description: description, // Kept for backwards compatibility
+            // Sanitize: If a value is an empty string, set it to null so the DB constraint doesn't throw an error.
+            project_id: project_id || null,
+            due_date: due_date || null,
             priority: priority || 'medium',
             tags: tags || [],
             notes,
@@ -235,18 +289,27 @@ export const dataService = {
     },
 
     // --- FINANCE / BANKING SYSTEM ---
+
+    /**
+     * Fetches all financial transactions (income & expenses).
+     * Records are sorted by the date the user set, then by actual creation time.
+     * @returns {Array} List of finance records.
+     */
     fetchFinanceRecords: async () => {
         const user = await getUser();
         const { data } = await supabase
             .from('finance_records')
             .select('*')
             .eq('user_id', user.id)
-            .order('date', { ascending: false })
-            .order('created_at', { ascending: false });
-        // Handle potential recurring logic here if needed, or in the UI
+            .order('date', { ascending: false }) // Primary sort: the date picker value
+            .order('created_at', { ascending: false }); // Secondary sort: insertion timestamp
         return data;
     },
 
+    /**
+     * Inserts a new financial record.
+     * @param {Object} recordData - Contains type ('income'|'expense'), amount, category, etc.
+     */
     addFinanceRecord: async ({ type, amount, category, description, date, payment_method, is_recurring, recurrence_interval }) => {
         const user = await getUser();
         return supabase.from('finance_records').insert([{
@@ -305,17 +368,25 @@ export const dataService = {
     },
 
     // --- FINANCE GOALS (SAVINGS) ---
+
+    /**
+     * Fetches saving goals and emergency funds.
+     * NOTE: Both standard goals and the emergency fund live in the same `finance_goals` table,
+     * differentiated by the `type` column.
+     * @returns {Array} List of goals, mapped for the UI.
+     */
     fetchGoals: async () => {
         const user = await getUser();
-        // New Table: finance_goals (type = 'goal' or 'emergency')
+        // `.in` acts like SQL's IN clause, fetching rows where `type` is exactly 'goal' OR 'emergency'.
         const { data } = await supabase
             .from('finance_goals')
             .select('*')
             .eq('user_id', user.id)
-            .in('type', ['goal', 'emergency']) // Fetch both regular goals and emergency funds
-            .order('deadline', { ascending: true });
+            .in('type', ['goal', 'emergency'])
+            .order('deadline', { ascending: true }); // Show earliest deadlines first
 
-        // Map 'emergency' type back to 'is_emergency_fund' boolean for UI compatibility
+        // Map the database `type` string back to a boolean `is_emergency_fund` 
+        // to keep our React UI logic simple.
         return data?.map(d => ({
             ...d,
             is_emergency_fund: d.type === 'emergency'

@@ -8,30 +8,46 @@ import {
 import { supabase } from '../supabaseClient';
 import ThemeSelector from './ThemeSelector';
 
+/**
+ * MainLayout Component
+ * 
+ * This is the primary wrapper for the entire application. It provides the persistent UI
+ * elements like the Sidebar (desktop) and Bottom/Top Navigation (mobile).
+ * 
+ * @param {Object} props
+ * @param {React.ReactNode} props.children - The specific page content (e.g., Dashboard, Diary) rendered inside this layout.
+ */
 const MainLayout = ({ children }) => {
+  // `useLocation` is a React Router hook that gives us the current URL.
+  // We use this to highlight the active menu icon.
   const location = useLocation();
+
+  // `useState` manages local component state. Here it tracks if the mobile sliding menu is open or closed.
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Close mobile menu when route changes
+  // `useEffect` runs side-effects. This specific effect listens for changes to `location.pathname` (the URL).
+  // When the user clicks a link and the route changes, we automatically close the mobile menu.
   React.useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
 
+  /**
+   * Handles user logout by calling the Supabase auth API.
+   * Supabase will clear the local session tokens automatically.
+   */
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
 
   return (
+    // The outermost wrapper uses `fixed inset-0` to pin it to all 4 corners of the screen,
+    // ensuring the app takes up the full viewport height without body scrolling.
     <div className="fixed inset-0 w-full h-full bg-background text-text-main font-sans overflow-hidden flex transition-theme">
 
-      {/* LAYER 0: Background Effects (Subtle Glows) */}
-      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden opacity-30">
-        <div className="absolute top-[-20%] left-[-10%] w-[800px] h-[800px] bg-primary/20 blur-[120px] rounded-full mix-blend-screen" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] bg-primary/10 blur-[120px] rounded-full mix-blend-screen" />
-      </div>
+      {/* LAYER 0: Background Effects (Removed for Minimalist UI) */}
 
       {/* LAYER 1: Sidebar (Desktop) */}
-      <aside className="hidden md:flex w-20 flex-col items-center py-6 border-r border-border bg-surface/50 backdrop-blur-xl z-20 relative transition-theme">
+      <aside className="hidden md:flex w-20 flex-col items-center py-6 border-r border-border/50 bg-background/50 backdrop-blur-md z-20 relative transition-theme">
         <div className="mb-8 p-2">
           <Link to="/" className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 hover:scale-105 transition-transform">
             <Zap size={20} className="text-white fill-white" />
@@ -105,7 +121,7 @@ const MainLayout = ({ children }) => {
       <main className="flex-1 flex flex-col relative z-10 h-full overflow-hidden min-w-0 bg-background transition-theme">
 
         {/* Mobile Header */}
-        <div className="md:hidden p-4 flex justify-between items-center bg-surface/50 border-b border-border backdrop-blur-md shrink-0">
+        <div className="md:hidden p-4 flex justify-between items-center bg-background/80 border-b border-border/50 backdrop-blur-md shrink-0">
           <button onClick={() => setIsMobileMenuOpen(true)}>
             <Menu className="text-text-muted" />
           </button>
@@ -128,11 +144,11 @@ const MainLayout = ({ children }) => {
 // Helper Component for Sidebar Icons
 const NavIcon = ({ to, icon, active, danger }) => (
   <Link to={to} className={`relative group p-3 rounded-2xl transition-all duration-300 ${active
-      ? 'bg-primary/10 text-primary'
-      : 'text-text-muted hover:text-text-main hover:bg-surface-highlight'
+    ? 'bg-primary/10 text-primary'
+    : 'text-text-muted hover:text-text-main hover:bg-surface-highlight'
     } ${danger ? 'hover:text-amber-500 hover:bg-amber-500/10' : ''}`}>
     {icon}
-    {active && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full shadow-[0_0_12px_var(--primary)]" />}
+    {active && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />}
   </Link>
 );
 

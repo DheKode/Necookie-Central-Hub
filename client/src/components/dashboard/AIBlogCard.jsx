@@ -6,29 +6,41 @@ import { api } from '../../api';
 // Toggle this to enable/disable maintenance mode
 const MAINTENANCE_MODE = true;
 
+/**
+ * AIBlogCard Component
+ * 
+ * This component fetches and displays the AI-generated daily summary.
+ * It uses React Query (@tanstack/react-query) for state management and data fetching.
+ */
 const AIBlogCard = () => {
+  // `useQueryClient` gives us access to the React Query cache.
+  // We use this to manually tell React Query to refetch data when something changes.
   const queryClient = useQueryClient();
 
-  // 1. Fetch Data
+  // 1. Fetch Data (Queries)
+  // `useQuery` is used to READ data. It automatically handles loading and error states.
   const { data: summary, isLoading, isError } = useQuery({
-    queryKey: ['dailySummary'],
-    queryFn: api.fetchLatestSummary,
-    retry: 1,
-    staleTime: 1000 * 60 * 5, // Cache for 5 mins
-    enabled: !MAINTENANCE_MODE, // Disable fetching in maintenance mode
+    queryKey: ['dailySummary'], // A unique key for this specific data in the cache.
+    queryFn: api.fetchLatestSummary, // The function that actually makes the API call.
+    retry: 1, // Only retry once if the request fails (prevents infinite spam).
+    staleTime: 1000 * 60 * 5, // Cache the data for 5 minutes before considering it "stale".
+    enabled: !MAINTENANCE_MODE, // If this is false, the query won't run at all.
   });
 
-  // 2. Generate Data
+  // 2. Generate Data (Mutations)
+  // `useMutation` is used to CREATE, UPDATE, or DELETE data.
   const generateMutation = useMutation({
-    mutationFn: api.generateDailySummary,
+    mutationFn: api.generateDailySummary, // The function that hits our POST /api/ai/summary endpoint.
     onSuccess: () => {
+      // When the mutation succeeds, we "invalidate" the ['dailySummary'] cache.
+      // This forces the `useQuery` hook above to automatically refetch the newly generated summary.
       queryClient.invalidateQueries(['dailySummary']);
     }
   });
 
   if (MAINTENANCE_MODE) {
     return (
-      <div className="bg-surface border border-border rounded-3xl p-6 relative overflow-hidden h-full flex flex-col justify-between group transition-theme min-h-[200px]">
+      <div className="bg-surface rounded-2xl p-6 relative overflow-hidden h-full flex flex-col justify-between group transition-theme min-h-[200px]">
         {/* Background Ambience */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-primary/10 transition-colors pointer-events-none" />
 
@@ -60,7 +72,7 @@ const AIBlogCard = () => {
   }
 
   return (
-    <div className="bg-surface border border-border rounded-3xl p-6 relative overflow-hidden h-full flex flex-col justify-between group transition-theme min-h-[200px]">
+    <div className="bg-surface rounded-2xl p-6 relative overflow-hidden h-full flex flex-col justify-between group transition-theme min-h-[200px]">
 
       {/* Background Ambience */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-primary/10 transition-colors pointer-events-none" />

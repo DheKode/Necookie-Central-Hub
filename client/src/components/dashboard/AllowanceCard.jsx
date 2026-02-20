@@ -41,7 +41,7 @@ const AllowanceCard = () => {
       }
 
       const maxSpend = Math.max(...dailyExpenses, 100);
-      const normalizedHeights = dailyExpenses.map(val => 
+      const normalizedHeights = dailyExpenses.map(val =>
         Math.max(10, Math.round((val / maxSpend) * 100))
       );
 
@@ -54,7 +54,7 @@ const AllowanceCard = () => {
   };
 
   return (
-    <div className="bg-surface border border-border rounded-3xl p-6 flex flex-col justify-between shadow-sm h-full transition-theme">
+    <div className="bg-surface rounded-2xl p-6 flex flex-col justify-between shadow-sm h-full transition-theme">
       <div className="flex justify-between items-start">
         <div>
           <p className="text-text-muted text-xs font-bold uppercase tracking-widest mb-1">Allowance</p>
@@ -64,20 +64,19 @@ const AllowanceCard = () => {
         </div>
         <div className="bg-emerald-500/10 p-2 rounded-lg text-emerald-500 border border-emerald-500/20">
           <span className="text-xs font-bold font-mono">
-             {balance > 0 ? 'Active' : 'Low'}
+            {balance > 0 ? 'Active' : 'Low'}
           </span>
         </div>
       </div>
-      
+
       <div className="mt-6 flex items-end gap-1 h-12">
         {graphData.map((height, idx) => (
-          <div 
+          <div
             key={idx}
-            className={`w-1/5 rounded-t-sm transition-all duration-500 ${
-              idx === 4 
-                ? 'bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.3)]' 
+            className={`w-1/5 rounded-t-sm transition-all duration-500 ${idx === 4
+                ? 'bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.3)]'
                 : 'bg-surface-highlight'
-            }`}
+              }`}
             style={{ height: `${height}%` }}
             title={`Day ${idx + 1}`}
           />

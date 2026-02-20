@@ -69,7 +69,7 @@ const SleepTracker = () => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-slate-900/90 border border-slate-700/50 p-3 rounded-xl shadow-xl backdrop-blur-md">
+        <div className="bg-slate-900/90 p-3 rounded-xl shadow-xl backdrop-blur-md">
           <p className="text-slate-400 text-[10px] uppercase font-bold tracking-widest mb-1">{data.fullDate}</p>
           <div className="flex items-baseline gap-1">
             <span className="text-indigo-400 font-mono text-xl font-bold">{data.hours}</span>
@@ -82,7 +82,7 @@ const SleepTracker = () => {
   };
 
   return (
-    <div className={`relative h-full border rounded-3xl p-6 transition-all duration-500 overflow-hidden flex flex-col justify-between ${isSleeping ? 'bg-indigo-950 border-indigo-800' : 'bg-surface border-border shadow-sm'
+    <div className={`relative h-full rounded-2xl p-6 transition-all duration-500 overflow-hidden flex flex-col justify-between ${isSleeping ? 'bg-indigo-950' : 'bg-surface shadow-sm'
       }`}>
 
       {/* HEADER */}
