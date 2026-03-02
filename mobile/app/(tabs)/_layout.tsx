@@ -40,10 +40,31 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="two"
+        name="todo"
+        options={{
+          title: 'Tasks',
+          tabBarIcon: ({ color }) => <Ionicons name="checkbox-outline" size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="journal"
         options={{
           title: 'Journal',
-          tabBarIcon: ({ color }) => <Ionicons name="book" size={24} color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="book-outline" size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="finance"
+        options={{
+          title: 'Finance',
+          tabBarIcon: ({ color }) => <Ionicons name="wallet-outline" size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="history"
+        options={{
+          title: 'History',
+          tabBarIcon: ({ color }) => <Ionicons name="time-outline" size={24} color={color} />,
         }}
       />
     </Tabs>
