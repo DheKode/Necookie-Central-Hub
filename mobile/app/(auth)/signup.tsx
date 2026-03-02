@@ -43,8 +43,8 @@ export default function SignupScreen() {
         >
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <View style={styles.header}>
-                    <Text style={styles.title}>Join Necookie</Text>
-                    <Text style={styles.subtitle}>Create your personal central hub</Text>
+                    <Text style={styles.title}>Let's get started</Text>
+                    <Text style={styles.subtitle}>Create a peaceful space for your daily life</Text>
                 </View>
 
                 <View style={styles.form}>

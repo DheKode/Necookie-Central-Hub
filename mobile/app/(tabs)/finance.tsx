@@ -97,8 +97,8 @@ export default function FinanceScreen() {
                     !loading ? (
                         <EmptyState
                             iconName="wallet-outline"
-                            title="No transactions"
-                            description="Keep track of your spending and income here."
+                            title="Track your flow"
+                            description="Ready to record a transaction? Let's start building your history."
                             actionLabel="Add transaction"
                             onActionPress={() => console.log('Add transaction pressed')}
                         />
@@ -106,7 +106,7 @@ export default function FinanceScreen() {
                 }
             />
 
-            <FAB iconName="add" onPress={() => console.log('Add transaction pressed')} />
+            <FAB iconName="add" onPress={() => console.log('Add transaction pressed')} accessibilityLabel="Add transaction" />
         </View>
     );
 }

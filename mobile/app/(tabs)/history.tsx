@@ -102,8 +102,8 @@ export default function HistoryScreen() {
                     !loading ? (
                         <EmptyState
                             iconName="time-outline"
-                            title="No history yet"
-                            description="Your activities will appear here once you start using the hub."
+                            title="A quiet day"
+                            description="Your activity timeline is waiting for its first moment."
                         />
                     ) : null
                 }

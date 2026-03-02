@@ -79,7 +79,9 @@ export function Button({
         <TouchableOpacity
             style={[styles.base, getSizeStyle(), getContainerStyle(), style]}
             disabled={disabled || loading}
-            activeOpacity={0.8}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={label}
             {...rest}
         >
             {loading ? (

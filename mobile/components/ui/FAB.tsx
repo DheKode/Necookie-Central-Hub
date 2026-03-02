@@ -12,7 +12,8 @@ export function FAB({ iconName = 'add', color = colors.buttonPrimaryText, style,
     return (
         <TouchableOpacity
             style={[styles.container, style]}
-            activeOpacity={0.8}
+            activeOpacity={0.7}
+            accessibilityRole="button"
             {...rest}
         >
             <Ionicons name={iconName} size={24} color={color} />

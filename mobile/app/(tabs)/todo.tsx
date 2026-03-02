@@ -5,6 +5,7 @@ import { colors, spacing, typography, radius, shadows } from '../../theme';
 import { Card, SectionHeader, FAB, PillFilter, EmptyState } from '../../components/ui';
 import { dataService } from '../../src/services/dataService';
 import { format } from 'date-fns';
+import * as Haptics from 'expo-haptics';
 
 export default function TodoScreen() {
     const [tasks, setTasks] = useState<any[]>([]);
@@ -41,6 +42,12 @@ export default function TodoScreen() {
 
     const handleToggleTask = async (task: any) => {
         try {
+            if (!task.completed) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } else {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+
             await dataService.toggleTask({ id: task.id, status: !task.completed });
             setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: !t.completed } : t));
         } catch (error) {
@@ -59,6 +66,10 @@ export default function TodoScreen() {
         <Card style={[styles.taskCard, item.completed && styles.taskCompleted]}>
             <TouchableOpacity
                 style={styles.checkbox}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: item.completed }}
+                accessibilityLabel={`Mark ${item.title} as ${item.completed ? 'incomplete' : 'complete'}`}
                 onPress={() => handleToggleTask(item)}
             >
                 <Ionicons
@@ -111,14 +122,14 @@ export default function TodoScreen() {
                     !loading ? (
                         <EmptyState
                             iconName="checkmark-circle-outline"
-                            title="No tasks found"
-                            description={selectedFilter === 'All' ? "You're all done! Enjoy your free time." : `No ${selectedFilter.toLowerCase()} tasks.`}
+                            title={selectedFilter === 'All' ? "All clear" : "Nothing here"}
+                            description={selectedFilter === 'All' ? "You've finished everything on your plate. Enjoy the peace!" : `You have no ${selectedFilter.toLowerCase()} tasks.`}
                         />
                     ) : null
                 }
             />
 
-            <FAB iconName="add" onPress={() => console.log('Add task pressed')} />
+            <FAB iconName="add" onPress={() => console.log('Add task pressed')} accessibilityLabel="Add robust task" />
         </View>
     );
 }

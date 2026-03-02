@@ -5,6 +5,7 @@ import { colors, spacing, typography, radius, shadows } from '../../theme';
 import { Card, SectionHeader, FAB, PillFilter, EmptyState, Button } from '../../components/ui';
 import { dataService } from '../../src/services/dataService';
 import { format } from 'date-fns';
+import * as Haptics from 'expo-haptics';
 
 const MOODS = [
     { id: 'happy', label: '😊' },
@@ -50,6 +51,7 @@ export default function JournalScreen() {
                 content: newEntry,
                 mood: selectedMood
             });
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             setNewEntry('');
             setIsWriting(false);
             fetchData();
@@ -117,8 +119,8 @@ export default function JournalScreen() {
                     !loading ? (
                         <EmptyState
                             iconName="book-outline"
-                            title="Your journal is empty"
-                            description="Start capturing your thoughts and moods today."
+                            title="A fresh page"
+                            description="Take a moment to reflect. What's on your mind today?"
                             actionLabel="Write first entry"
                             onActionPress={() => setIsWriting(true)}
                         />
@@ -126,7 +128,7 @@ export default function JournalScreen() {
                 }
             />
 
-            <FAB iconName="create-outline" onPress={() => setIsWriting(true)} />
+            <FAB iconName="create-outline" onPress={() => setIsWriting(true)} accessibilityLabel="New journal entry" />
         </View>
     );
 }
