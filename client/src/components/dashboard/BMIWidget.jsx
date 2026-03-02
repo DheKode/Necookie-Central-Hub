@@ -6,9 +6,10 @@ const BIRTH_DATE = new Date('2004-11-19');
 
 const BMIWidget = () => {
   const [weight, setWeight] = useState(60);
+  const [currentYear] = useState(() => new Date().getUTCFullYear());
 
   const bmi = (weight / (HEIGHT_M * HEIGHT_M)).toFixed(1);
-  const age = Math.abs(new Date(Date.now() - BIRTH_DATE.getTime()).getUTCFullYear() - 1970);
+  const age = currentYear - BIRTH_DATE.getUTCFullYear();
 
   const getStatus = (value) => {
     if (value < 18.5) return { label: 'Underweight', color: 'bg-sky-400', text: 'text-sky-600' };

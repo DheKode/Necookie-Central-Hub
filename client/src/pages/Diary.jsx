@@ -28,19 +28,29 @@ const Diary = () => {
   const [content, setContent] = useState("");
   const [selectedMood, setSelectedMood] = useState('neutral');
 
-  useEffect(() => { fetchEntries(); }, []);
+  useEffect(() => {
+    let isMounted = true;
 
-  const fetchEntries = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data, error } = await supabase
-      .from('personal_entries')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('type', 'journal')
-      .order('created_at', { ascending: false });
-    if (!error) setEntries(data);
-    setLoading(false);
-  };
+    const loadEntries = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data, error } = await supabase
+        .from('personal_entries')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('type', 'journal')
+        .order('created_at', { ascending: false });
+
+      if (!isMounted) return;
+      if (!error) setEntries(data);
+      setLoading(false);
+    };
+
+    loadEntries();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleSave = async () => {
     if (!content.trim()) return;

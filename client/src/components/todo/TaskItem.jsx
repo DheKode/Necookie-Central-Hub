@@ -1,9 +1,7 @@
-import React, { useState } from 'react';
-import { Check, Calendar, ChevronDown, Trash2, Tag, Flag } from 'lucide-react';
+import React from 'react';
+import { Check, Calendar, Trash2, Flag } from 'lucide-react';
 
 const TaskItem = ({ task, onToggle, onDelete, onEdit }) => {
-    const [isExpanded, setIsExpanded] = useState(false);
-
     // Determine Priority Color
     const getPriorityColor = (p) => {
         switch (p) {

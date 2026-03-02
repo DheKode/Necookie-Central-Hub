@@ -7,6 +7,24 @@ import {
 } from 'recharts';
 import { format, subDays, isSameDay, parseISO } from 'date-fns';
 
+const SleepTooltip = ({ active, payload }) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+
+    return (
+      <div className="bg-slate-900/90 p-3 rounded-xl shadow-xl backdrop-blur-md">
+        <p className="text-slate-400 text-[10px] uppercase font-bold tracking-widest mb-1">{data.fullDate}</p>
+        <div className="flex items-baseline gap-1">
+          <span className="text-indigo-400 font-mono text-xl font-bold">{data.hours}</span>
+          <span className="text-xs text-slate-500 font-bold">hrs</span>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+};
+
 const SleepTracker = () => {
   const queryClient = useQueryClient();
   const [view, setView] = useState('tracker');
@@ -63,23 +81,6 @@ const SleepTracker = () => {
   const daysWithData = last7Days.filter(day => day.hours > 0).length;
   const totalHours = last7Days.reduce((acc, curr) => acc + curr.hours, 0);
   const avgSleep = daysWithData > 0 ? (totalHours / daysWithData).toFixed(1) : "0.0";
-
-  // --- CUSTOM TOOLTIP ---
-  const CustomTooltip = ({ active, payload }) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <div className="bg-slate-900/90 p-3 rounded-xl shadow-xl backdrop-blur-md">
-          <p className="text-slate-400 text-[10px] uppercase font-bold tracking-widest mb-1">{data.fullDate}</p>
-          <div className="flex items-baseline gap-1">
-            <span className="text-indigo-400 font-mono text-xl font-bold">{data.hours}</span>
-            <span className="text-xs text-slate-500 font-bold">hrs</span>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <div className={`relative h-full rounded-2xl p-6 transition-all duration-500 overflow-hidden flex flex-col justify-between ${isSleeping ? 'bg-indigo-950' : 'bg-surface shadow-sm'
@@ -167,7 +168,7 @@ const SleepTracker = () => {
                 {/* 8h Goal Line */}
                 <ReferenceLine y={8} stroke="#6366f1" strokeDasharray="3 3" strokeOpacity={0.4} />
 
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)', radius: 8 }} />
+                <Tooltip content={SleepTooltip} cursor={{ fill: 'rgba(255,255,255,0.03)', radius: 8 }} />
 
                 {/* Background "Ghost" Bars */}
                 <Bar dataKey="max" barSize={12} radius={[4, 4, 4, 4]} fill="currentColor" className="text-surface-highlight" style={{ pointerEvents: 'none', position: 'absolute' }} />

@@ -55,15 +55,15 @@ const MainLayout = ({ children }) => {
         </div>
 
         <nav className="flex flex-col gap-6 w-full items-center">
-          <NavIcon to="/dashboard" icon={<LayoutGrid size={24} />} active={location.pathname === '/dashboard'} />
-          <NavIcon to="/history" icon={<Clock size={24} />} active={location.pathname === '/history'} />
-          <NavIcon to="/diary" icon={<BookOpen size={24} />} active={location.pathname === '/diary'} />
-          <NavIcon to="/finance" icon={<Wallet size={24} />} active={location.pathname === '/finance'} />
-          <NavIcon to="/todo" icon={<CheckSquare size={24} />} active={location.pathname === '/todo'} />
+          <NavIcon to="/dashboard" icon={LayoutGrid} size={24} active={location.pathname === '/dashboard'} />
+          <NavIcon to="/history" icon={Clock} size={24} active={location.pathname === '/history'} />
+          <NavIcon to="/diary" icon={BookOpen} size={24} active={location.pathname === '/diary'} />
+          <NavIcon to="/finance" icon={Wallet} size={24} active={location.pathname === '/finance'} />
+          <NavIcon to="/todo" icon={CheckSquare} size={24} active={location.pathname === '/todo'} />
 
           <div className="h-px w-8 bg-border my-2 transition-colors" />
 
-          <NavIcon to="/vault" icon={<Lock size={22} />} active={location.pathname === '/vault'} danger />
+          <NavIcon to="/vault" icon={Lock} size={22} active={location.pathname === '/vault'} danger />
         </nav>
 
         {/* BOTTOM ACTIONS */}
@@ -92,12 +92,12 @@ const MainLayout = ({ children }) => {
               <X size={24} />
             </button>
             <nav className="flex flex-col gap-6 w-full items-center">
-              <NavIcon to="/dashboard" icon={<LayoutGrid size={24} />} active={location.pathname === '/dashboard'} />
-              <NavIcon to="/history" icon={<Clock size={24} />} active={location.pathname === '/history'} />
-              <NavIcon to="/diary" icon={<BookOpen size={24} />} active={location.pathname === '/diary'} />
-              <NavIcon to="/finance" icon={<Wallet size={24} />} active={location.pathname === '/finance'} />
-              <NavIcon to="/todo" icon={<CheckSquare size={24} />} active={location.pathname === '/todo'} />
-              <NavIcon to="/vault" icon={<Lock size={22} />} active={location.pathname === '/vault'} danger />
+              <NavIcon to="/dashboard" icon={LayoutGrid} size={24} active={location.pathname === '/dashboard'} />
+              <NavIcon to="/history" icon={Clock} size={24} active={location.pathname === '/history'} />
+              <NavIcon to="/diary" icon={BookOpen} size={24} active={location.pathname === '/diary'} />
+              <NavIcon to="/finance" icon={Wallet} size={24} active={location.pathname === '/finance'} />
+              <NavIcon to="/todo" icon={CheckSquare} size={24} active={location.pathname === '/todo'} />
+              <NavIcon to="/vault" icon={Lock} size={22} active={location.pathname === '/vault'} danger />
 
               <div className="h-px w-8 bg-border my-2" />
 
@@ -142,12 +142,12 @@ const MainLayout = ({ children }) => {
 };
 
 // Helper Component for Sidebar Icons
-const NavIcon = ({ to, icon, active, danger }) => (
+const NavIcon = ({ to, icon, size, active, danger }) => (
   <Link to={to} className={`relative group p-3 rounded-2xl transition-all duration-300 ${active
     ? 'bg-primary/10 text-primary'
     : 'text-text-muted hover:text-text-main hover:bg-surface-highlight'
     } ${danger ? 'hover:text-amber-500 hover:bg-amber-500/10' : ''}`}>
-    {icon}
+    {React.createElement(icon, { size })}
     {active && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />}
   </Link>
 );

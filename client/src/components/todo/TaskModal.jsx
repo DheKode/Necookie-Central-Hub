@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X, Calendar, Flag, Hash, CheckSquare, Plus, Trash2 } from 'lucide-react';
-import { api } from '../../api';
 
 /**
  * TaskModal Component
@@ -15,6 +14,15 @@ import { api } from '../../api';
  * @param {Function} props.onSave - Function to call with the form data when 'Save Task' is clicked.
  * @param {Object|null} props.task - If this is populated, we are in "Edit Mode". If null, we are in "Create Mode".
  */
+const createFormData = (task) => ({
+    title: task?.title || task?.description || '',
+    notes: task?.notes || '',
+    due_date: task?.due_date ? task.due_date.split('T')[0] : '',
+    priority: task?.priority || 'medium',
+    project_id: task?.project_id || '',
+    tags: task?.tags || []
+});
+
 const TaskModal = ({
     isOpen,
     onClose,
@@ -27,42 +35,9 @@ const TaskModal = ({
 }) => {
     // `useState` hooks manage the data the user is currently typing into the form.
     // Whenever `setFormData` is called, React re-renders this component to show the new values.
-    const [formData, setFormData] = useState({
-        title: '',
-        notes: '',
-        due_date: '',
-        priority: 'medium',
-        project_id: '',
-        tags: []
-    });
+    const [formData, setFormData] = useState(() => createFormData(task));
 
     const [newSubtask, setNewSubtask] = useState('');
-
-    // `useEffect` runs code after the component renders, or when specific variables change.
-    // The array `[task, isOpen]` tells React: "Run this code ONLY if `task` or `isOpen` changes."
-    useEffect(() => {
-        if (task) {
-            // Edit Mode: Prefill the form with existing task data
-            setFormData({
-                title: task.title || task.description || '',
-                notes: task.notes || '',
-                due_date: task.due_date ? task.due_date.split('T')[0] : '',
-                priority: task.priority || 'medium',
-                project_id: task.project_id || '',
-                tags: task.tags || []
-            });
-        } else {
-            // Create Mode: Reset the form to empty defaults
-            setFormData({
-                title: '',
-                notes: '',
-                due_date: '',
-                priority: 'medium',
-                project_id: '',
-                tags: []
-            });
-        }
-    }, [task, isOpen]);
 
     // Fast-fail: if the modal isn't supposed to be open, render absolutely nothing.
     if (!isOpen) return null;

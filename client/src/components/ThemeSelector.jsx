@@ -11,20 +11,46 @@ const themes = [
   { id: 'goth',     name: 'Goth',     isDark: true,  bg: 'bg-black',       dot: 'bg-red-600' },
 ];
 
+const getStoredTheme = () => {
+  if (typeof window === 'undefined') {
+    return 'light';
+  }
+
+  return localStorage.getItem('theme') || 'light';
+};
+
+const syncThemeToDom = (themeId) => {
+  const themeObj = themes.find(t => t.id === themeId);
+  if (!themeObj) return;
+
+  const html = document.documentElement;
+  html.classList.remove('dark', ...themes.map(t => `theme-${t.id}`));
+  html.classList.add('transition-theme');
+
+  if (themeObj.isDark) html.classList.add('dark');
+  if (themeId !== 'light' && themeId !== 'dark') html.classList.add(`theme-${themeId}`);
+};
+
 /**
  * @param {Object} props
  * @param {'sidebar' | 'header'} [props.variant='sidebar'] - Controls layout & positioning
  */
 const ThemeSelector = ({ variant = 'sidebar' }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTheme, setActiveTheme] = useState('light');
+  const [activeTheme, setActiveTheme] = useState(getStoredTheme);
   const dropdownRef = useRef(null);
 
-  // Load saved theme on mount
+  function applyTheme(themeId, save = true) {
+    const themeObj = themes.find(t => t.id === themeId);
+    if (!themeObj) return;
+
+    setActiveTheme(themeId);
+    if (save) localStorage.setItem('theme', themeId);
+  }
+
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    applyTheme(savedTheme, false); // false = don't save again, just apply
-  }, []);
+    syncThemeToDom(activeTheme);
+  }, [activeTheme]);
 
   // Close on click outside
   useEffect(() => {
@@ -36,23 +62,6 @@ const ThemeSelector = ({ variant = 'sidebar' }) => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const applyTheme = (themeId, save = true) => {
-    const themeObj = themes.find(t => t.id === themeId);
-    if (!themeObj) return;
-
-    setActiveTheme(themeId);
-    if (save) localStorage.setItem('theme', themeId);
-    
-    const html = document.documentElement;
-    // Clean slate: remove all known theme classes
-    html.classList.remove('dark', ...themes.map(t => `theme-${t.id}`));
-    html.classList.add('transition-theme');
-    
-    // Apply new classes
-    if (themeObj.isDark) html.classList.add('dark');
-    if (themeId !== 'light' && themeId !== 'dark') html.classList.add(`theme-${themeId}`);
-  };
 
   // --- UI CONFIGURATION ---
   const isSidebar = variant === 'sidebar';

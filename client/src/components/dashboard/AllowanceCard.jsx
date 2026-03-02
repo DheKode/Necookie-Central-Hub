@@ -13,45 +13,53 @@ const AllowanceCard = () => {
   });
 
   useEffect(() => {
-    fetchFinancialData();
-  }, []);
+    let isMounted = true;
 
-  const fetchFinancialData = async () => {
-    try {
-      const records = await api.fetchFinanceRecords();
-      if (!records) return;
+    const loadFinancialData = async () => {
+      try {
+        const records = await api.fetchFinanceRecords();
+        if (!records || !isMounted) return;
 
-      let total = 0;
-      records.forEach(log => {
-        const val = parseFloat(log.amount);
-        if (log.type === 'income') total += val;
-        else total -= val;
-      });
-      setBalance(total);
+        let total = 0;
+        records.forEach(log => {
+          const val = parseFloat(log.amount);
+          if (log.type === 'income') total += val;
+          else total -= val;
+        });
 
-      const today = new Date();
-      const dailyExpenses = [];
+        const today = new Date();
+        const dailyExpenses = [];
 
-      for (let i = 4; i >= 0; i--) {
-        const targetDate = subDays(today, i);
-        const dayExpense = records
-          .filter(log => log.type === 'expense' && isSameDay(parseISO(log.date), targetDate))
-          .reduce((sum, log) => sum + parseFloat(log.amount), 0);
-        dailyExpenses.push(dayExpense);
+        for (let i = 4; i >= 0; i--) {
+          const targetDate = subDays(today, i);
+          const dayExpense = records
+            .filter(log => log.type === 'expense' && isSameDay(parseISO(log.date), targetDate))
+            .reduce((sum, log) => sum + parseFloat(log.amount), 0);
+          dailyExpenses.push(dayExpense);
+        }
+
+        const maxSpend = Math.max(...dailyExpenses, 100);
+        const normalizedHeights = dailyExpenses.map(val =>
+          Math.max(10, Math.round((val / maxSpend) * 100))
+        );
+
+        setBalance(total);
+        setGraphData(normalizedHeights);
+        setLoading(false);
+      } catch (error) {
+        console.error("Failed to load finance widget", error);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
+    };
 
-      const maxSpend = Math.max(...dailyExpenses, 100);
-      const normalizedHeights = dailyExpenses.map(val =>
-        Math.max(10, Math.round((val / maxSpend) * 100))
-      );
+    loadFinancialData();
 
-      setGraphData(normalizedHeights);
-      setLoading(false);
-
-    } catch (error) {
-      console.error("Failed to load finance widget", error);
-    }
-  };
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <div className="bg-surface rounded-2xl p-6 flex flex-col justify-between shadow-sm h-full transition-theme">

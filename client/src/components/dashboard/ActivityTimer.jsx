@@ -49,11 +49,11 @@ const ActivityTimer = () => {
       };
       tick();
       interval = setInterval(tick, 1000);
-    } else {
-      setElapsed("00:00:00");
     }
     return () => clearInterval(interval);
   }, [session]);
+
+  const displayedElapsed = session?.start_time ? elapsed : "00:00:00";
 
   return (
     <div className="bg-surface rounded-2xl p-6 shadow-sm h-full flex flex-col justify-between relative overflow-hidden transition-theme">
@@ -71,7 +71,7 @@ const ActivityTimer = () => {
         {session ? (
           <div className="w-full text-center space-y-4">
             <div className="relative inline-block">
-              <h2 className="text-6xl font-light text-text-main tracking-tighter tabular-nums font-mono">{elapsed}</h2>
+              <h2 className="text-6xl font-light text-text-main tracking-tighter tabular-nums font-mono">{displayedElapsed}</h2>
               <p className="text-sky-500 font-bold text-sm mt-1 uppercase tracking-wide bg-sky-500/10 inline-block px-3 py-1 rounded-full border border-sky-500/20">{session.activity_name}</p>
             </div>
             {isStopping ? (

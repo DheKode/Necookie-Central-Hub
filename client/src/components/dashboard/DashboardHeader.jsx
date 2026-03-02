@@ -4,6 +4,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api';
 import ThemeSelector from '../ThemeSelector'; 
 
+const HeaderInputIcon = ({ detectedType }) => {
+  if (detectedType === 'meal') return <Utensils size={14} className="text-emerald-500" />;
+  if (detectedType === 'workout') return <Activity size={14} className="text-orange-500" />;
+  return <Edit3 size={14} className="text-text-muted" />;
+};
+
 const DashboardHeader = () => {
   const queryClient = useQueryClient();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -80,12 +86,6 @@ const DashboardHeader = () => {
     setDetectedType('general');
   };
 
-  const InputIcon = () => {
-    if (detectedType === 'meal') return <Utensils size={14} className="text-emerald-500" />;
-    if (detectedType === 'workout') return <Activity size={14} className="text-orange-500" />;
-    return <Edit3 size={14} className="text-text-muted" />;
-  };
-
   return (
     <header className="h-20 border-b border-border bg-surface/50 backdrop-blur-md flex items-center justify-between px-6 z-40 sticky top-0 mb-6 transition-theme">
       
@@ -103,7 +103,7 @@ const DashboardHeader = () => {
         {/* Input Field */}
         <div className="hidden md:flex items-center gap-2 bg-background border border-border px-3 py-2 rounded-xl w-96 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all shadow-sm relative">
           <div className="shrink-0 transition-colors duration-300">
-             <InputIcon />
+             <HeaderInputIcon detectedType={detectedType} />
           </div>
           <input 
             type="text" 

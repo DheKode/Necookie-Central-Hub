@@ -176,7 +176,7 @@ const FinanceCalendar = ({ logs, currentDate, onDateChange }) => {
 };
 
 // Helper for conditional classes
-const activeDayStyle = (isToday, data) => {
+const activeDayStyle = () => {
     // Determine active styles if needed
     return '';
 };
