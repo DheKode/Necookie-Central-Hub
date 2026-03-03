@@ -1,23 +1,292 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, FlatList, RefreshControl, TouchableOpacity, Alert } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, radius, shadows } from '../../theme';
-import { Card, SectionHeader, FAB, EmptyState } from '../../components/ui';
+import {
+    addMonths,
+    eachDayOfInterval,
+    endOfMonth,
+    format,
+    getDay,
+    isSameDay,
+    isSameWeek,
+    isWithinInterval,
+    parseISO,
+    startOfMonth,
+} from 'date-fns';
+import { colors, radius, shadows, spacing, typography } from '../../theme';
+import { Button, Card, EmptyState, FormField, Modal, PillFilter, SectionHeader } from '../../components/ui';
 import { dataService } from '../../src/services/dataService';
-import { format } from 'date-fns';
+
+type FinanceRecord = {
+    id: number;
+    type: 'income' | 'expense';
+    amount: number | string;
+    category: string;
+    description?: string | null;
+    date: string;
+};
+
+type FundRecord = {
+    id: number;
+    name: string;
+    target_amount: number | string;
+    current_amount?: number | string | null;
+    color?: string | null;
+};
+
+type GoalRecord = {
+    id: number;
+    name: string;
+    target_amount: number | string;
+    current_amount?: number | string | null;
+    deadline?: string | null;
+    is_emergency_fund?: boolean;
+};
+
+type FinanceStats = {
+    totalBalance: number;
+    incomeToday: number;
+    expenseToday: number;
+    expenseWeek: number;
+};
+
+type BudgetStat = {
+    category: string;
+    spent: number;
+    limit: number;
+    percentage: number;
+    tone: string;
+};
+
+type DaySummary = {
+    income: number;
+    expense: number;
+    transactions: FinanceRecord[];
+};
+
+const FINANCE_TABS = [
+    { id: 'dashboard', label: 'Dashboard' },
+    { id: 'calendar', label: 'Calendar' },
+    { id: 'vault', label: 'Vault' },
+    { id: 'transactions', label: 'Transactions' },
+] as const;
+
+const TRANSACTION_TYPES = [
+    { id: 'income', label: 'Income' },
+    { id: 'expense', label: 'Expense' },
+] as const;
+
+const CREATE_TYPES = [
+    { id: 'fund', label: 'Fund' },
+    { id: 'goal', label: 'Goal' },
+] as const;
+
+const CATEGORIES = {
+    income: ['Allowance', 'Freelance', 'Gift', 'Salary', 'Other'],
+    expense: ['Food', 'Transport', 'Shopping', 'Games', 'Subscriptions', 'Other'],
+};
+
+const BUDGET_LIMITS: Record<string, number> = {
+    Food: 5000,
+    Transport: 2000,
+    Shopping: 3000,
+    Games: 1000,
+    Subscriptions: 1500,
+    Other: 2000,
+};
+
+const CATEGORY_COLORS = ['#748C7B', '#6E8B9E', '#D39655', '#BD6F6B', '#9D8AC7', '#D88C9A'];
+
+const currency = (value: number) => `$${Math.round(value).toLocaleString()}`;
+
+const toAmount = (value: number | string | null | undefined) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const buildStats = (records: FinanceRecord[]): FinanceStats => {
+    const today = new Date();
+
+    return records.reduce<FinanceStats>((acc, record) => {
+        const amount = toAmount(record.amount);
+        const recordDate = parseISO(record.date);
+
+        if (record.type === 'income') {
+            acc.totalBalance += amount;
+        } else {
+            acc.totalBalance -= amount;
+        }
+
+        if (isSameDay(recordDate, today)) {
+            if (record.type === 'income') {
+                acc.incomeToday += amount;
+            } else {
+                acc.expenseToday += amount;
+            }
+        }
+
+        if (record.type === 'expense' && isSameWeek(recordDate, today, { weekStartsOn: 1 })) {
+            acc.expenseWeek += amount;
+        }
+
+        return acc;
+    }, {
+        totalBalance: 0,
+        incomeToday: 0,
+        expenseToday: 0,
+        expenseWeek: 0,
+    });
+};
+
+const buildBudgetStats = (records: FinanceRecord[]): BudgetStat[] => {
+    const now = new Date();
+    const spending = Object.fromEntries(Object.keys(BUDGET_LIMITS).map((category) => [category, 0])) as Record<string, number>;
+
+    records.forEach((record) => {
+        if (record.type !== 'expense') {
+            return;
+        }
+
+        const inCurrentMonth = isWithinInterval(parseISO(record.date), {
+            start: startOfMonth(now),
+            end: endOfMonth(now),
+        });
+
+        if (inCurrentMonth && record.category in spending) {
+            spending[record.category] += toAmount(record.amount);
+        }
+    });
+
+    return Object.entries(BUDGET_LIMITS).map(([category, limit]) => {
+        const spent = spending[category] ?? 0;
+        const percentage = Math.min((spent / limit) * 100, 100);
+
+        let tone = colors.success;
+        if (percentage >= 80) tone = colors.warning;
+        if (percentage >= 100) tone = colors.danger;
+
+        return { category, spent, limit, percentage, tone };
+    });
+};
+
+const buildCategoryData = (records: FinanceRecord[]) => {
+    const totals: Record<string, number> = {};
+
+    records.forEach((record) => {
+        if (record.type !== 'expense') {
+            return;
+        }
+
+        totals[record.category] = (totals[record.category] ?? 0) + toAmount(record.amount);
+    });
+
+    const entries = Object.entries(totals)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
+
+    const total = entries.reduce((sum, entry) => sum + entry.value, 0);
+
+    return { entries, total };
+};
+
+const buildDailyTrend = (records: FinanceRecord[]) => {
+    const dayMap: Record<string, number> = {};
+
+    for (let index = 6; index >= 0; index -= 1) {
+        const day = new Date();
+        day.setDate(day.getDate() - index);
+        dayMap[format(day, 'MMM d')] = 0;
+    }
+
+    records.forEach((record) => {
+        if (record.type !== 'expense') {
+            return;
+        }
+
+        const dayKey = format(parseISO(record.date), 'MMM d');
+        if (dayMap[dayKey] !== undefined) {
+            dayMap[dayKey] += toAmount(record.amount);
+        }
+    });
+
+    return Object.entries(dayMap).map(([label, amount]) => ({ label, amount }));
+};
+
+const buildDailyMap = (records: FinanceRecord[]) => {
+    return records.reduce<Record<string, DaySummary>>((map, record) => {
+        const key = format(parseISO(record.date), 'yyyy-MM-dd');
+
+        if (!map[key]) {
+            map[key] = { income: 0, expense: 0, transactions: [] };
+        }
+
+        if (record.type === 'income') {
+            map[key].income += toAmount(record.amount);
+        } else {
+            map[key].expense += toAmount(record.amount);
+        }
+
+        map[key].transactions.push(record);
+        return map;
+    }, {});
+};
 
 export default function FinanceScreen() {
-    const [records, setRecords] = useState<any[]>([]);
+    const [records, setRecords] = useState<FinanceRecord[]>([]);
+    const [funds, setFunds] = useState<FundRecord[]>([]);
+    const [goals, setGoals] = useState<GoalRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [submittingTransaction, setSubmittingTransaction] = useState(false);
+    const [submittingVaultItem, setSubmittingVaultItem] = useState(false);
+    const [activeTab, setActiveTab] = useState<typeof FINANCE_TABS[number]['id']>('dashboard');
+    const [transactionModalVisible, setTransactionModalVisible] = useState(false);
+    const [vaultModalVisible, setVaultModalVisible] = useState(false);
+    const [calendarMonth, setCalendarMonth] = useState(new Date());
+    const [selectedDate, setSelectedDate] = useState(new Date());
+    const [transactionForm, setTransactionForm] = useState({
+        type: 'expense' as 'income' | 'expense',
+        amount: '',
+        category: CATEGORIES.expense[0],
+        description: '',
+        date: format(new Date(), 'yyyy-MM-dd'),
+    });
+    const [vaultForm, setVaultForm] = useState({
+        type: 'fund' as 'fund' | 'goal',
+        name: '',
+        target: '',
+        deadline: '',
+        isEmergency: false,
+    });
 
-    const fetchData = async () => {
+    const loadData = async (isRefresh = false) => {
+        if (!isRefresh) {
+            setLoading(true);
+        }
+
         try {
-            const data = await dataService.fetchFinanceRecords();
-            setRecords(data || []);
+            const [financeData, fundData, goalData] = await Promise.all([
+                dataService.fetchFinanceRecords(),
+                dataService.fetchFunds(),
+                dataService.fetchGoals(),
+            ]);
+
+            setRecords((financeData ?? []) as FinanceRecord[]);
+            setFunds((fundData ?? []) as FundRecord[]);
+            setGoals((goalData ?? []) as GoalRecord[]);
         } catch (error) {
-            console.error('Error fetching finance records:', error);
-            Alert.alert('Error', 'Failed to load finance data');
+            console.error('Failed to load finance data:', error);
+            Alert.alert('Error', 'Failed to load finance data.');
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -25,88 +294,664 @@ export default function FinanceScreen() {
     };
 
     useEffect(() => {
-        fetchData();
+        loadData();
     }, []);
 
     const onRefresh = () => {
         setRefreshing(true);
-        fetchData();
+        loadData(true);
     };
 
-    const calculateMonthlySummary = () => {
-        const now = new Date();
-        const currentMonthRecords = records.filter(r => {
-            const d = new Date(r.date);
-            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    const stats = useMemo(() => buildStats(records), [records]);
+    const budgetStats = useMemo(() => buildBudgetStats(records), [records]);
+    const categoryData = useMemo(() => buildCategoryData(records), [records]);
+    const dailyTrend = useMemo(() => buildDailyTrend(records), [records]);
+    const dailyMap = useMemo(() => buildDailyMap(records), [records]);
+
+    const selectedDateKey = format(selectedDate, 'yyyy-MM-dd');
+    const selectedDay = dailyMap[selectedDateKey];
+    const daysInMonth = useMemo(() => eachDayOfInterval({
+        start: startOfMonth(calendarMonth),
+        end: endOfMonth(calendarMonth),
+    }), [calendarMonth]);
+    const blankDays = useMemo(() => Array(getDay(startOfMonth(calendarMonth))).fill(null), [calendarMonth]);
+    const maxTrendAmount = Math.max(...dailyTrend.map((item) => item.amount), 1);
+    const walletBalance = stats.totalBalance;
+
+    const openTransactionModal = (type: 'income' | 'expense') => {
+        setTransactionForm({
+            type,
+            amount: '',
+            category: CATEGORIES[type][0],
+            description: '',
+            date: format(new Date(), 'yyyy-MM-dd'),
         });
-
-        return currentMonthRecords.reduce((acc, curr) => {
-            if (curr.type === 'income') acc.income += curr.amount;
-            else acc.expense += curr.amount;
-            return acc;
-        }, { income: 0, expense: 0 });
+        setTransactionModalVisible(true);
     };
 
-    const summary = calculateMonthlySummary();
+    const submitTransaction = async () => {
+        if (!transactionForm.amount) {
+            Alert.alert('Missing amount', 'Enter an amount before saving.');
+            return;
+        }
 
-    const renderRecord = ({ item }: { item: any }) => (
-        <Card style={styles.recordCard}>
-            <View style={[styles.iconBox, { backgroundColor: item.type === 'income' ? '#E8EFEA' : '#F7E8E7' }]}>
-                <Ionicons
-                    name={item.type === 'income' ? "arrow-down-outline" : "arrow-up-outline"}
-                    size={20}
-                    color={item.type === 'income' ? colors.success : colors.danger}
-                />
-            </View>
-            <View style={styles.recordInfo}>
-                <Text style={styles.recordDesc}>{item.description || item.category}</Text>
-                <Text style={styles.recordDate}>{format(new Date(item.date), 'MMM d, yyyy')}</Text>
-            </View>
-            <Text style={[styles.amount, { color: item.type === 'income' ? colors.success : colors.textPrimary }]}>
-                {item.type === 'income' ? '+' : '-'}${item.amount.toLocaleString()}
-            </Text>
-        </Card>
-    );
+        setSubmittingTransaction(true);
 
-    return (
-        <View style={styles.container}>
-            <View style={styles.summaryContainer}>
-                <Card style={styles.summaryCard}>
-                    <View style={styles.summaryColumn}>
-                        <Text style={styles.summaryLabel}>Income</Text>
-                        <Text style={[styles.summaryValue, { color: colors.success }]}>${summary.income.toLocaleString()}</Text>
+        try {
+            const { data, error } = await dataService.addFinanceRecord({
+                type: transactionForm.type,
+                amount: Number(transactionForm.amount),
+                category: transactionForm.category,
+                description: transactionForm.description.trim() || null,
+                date: transactionForm.date,
+                payment_method: null,
+                is_recurring: false,
+                recurrence_interval: null,
+            });
+
+            if (error) {
+                throw error;
+            }
+
+            const created = data?.[0] as FinanceRecord | undefined;
+            if (created) {
+                setRecords((current) => [created, ...current]);
+            }
+
+            setTransactionModalVisible(false);
+        } catch (error) {
+            console.error('Failed to create transaction:', error);
+            Alert.alert('Error', 'Failed to save transaction.');
+        } finally {
+            setSubmittingTransaction(false);
+        }
+    };
+
+    const deleteTransaction = (id: number) => {
+        Alert.alert('Delete transaction', 'This will remove the record permanently.', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: async () => {
+                    try {
+                        const { error } = await dataService.deleteFinanceRecord(id);
+                        if (error) {
+                            throw error;
+                        }
+
+                        setRecords((current) => current.filter((record) => record.id !== id));
+                    } catch (error) {
+                        console.error('Failed to delete transaction:', error);
+                        Alert.alert('Error', 'Failed to delete transaction.');
+                    }
+                },
+            },
+        ]);
+    };
+
+    const submitVaultItem = async () => {
+        if (!vaultForm.name.trim() || !vaultForm.target.trim()) {
+            Alert.alert('Missing fields', 'Name and target are required.');
+            return;
+        }
+
+        setSubmittingVaultItem(true);
+
+        try {
+            if (vaultForm.type === 'fund') {
+                const { data, error } = await dataService.addFund({
+                    name: vaultForm.name.trim(),
+                    target_amount: Number(vaultForm.target),
+                    current_amount: 0,
+                    color: 'sage',
+                });
+
+                if (error) {
+                    throw error;
+                }
+
+                const created = data?.[0] as FundRecord | undefined;
+                if (created) {
+                    setFunds((current) => [...current, created]);
+                }
+            } else {
+                const { data, error } = await dataService.addGoal({
+                    name: vaultForm.name.trim(),
+                    target_amount: Number(vaultForm.target),
+                    current_amount: 0,
+                    deadline: vaultForm.deadline || null,
+                    is_emergency_fund: vaultForm.isEmergency,
+                });
+
+                if (error) {
+                    throw error;
+                }
+
+                const created = data?.[0] as GoalRecord | undefined;
+                if (created) {
+                    setGoals((current) => [...current, created]);
+                }
+            }
+
+            setVaultModalVisible(false);
+            setVaultForm({
+                type: 'fund',
+                name: '',
+                target: '',
+                deadline: '',
+                isEmergency: false,
+            });
+        } catch (error) {
+            console.error('Failed to create vault item:', error);
+            Alert.alert('Error', 'Failed to create vault item.');
+        } finally {
+            setSubmittingVaultItem(false);
+        }
+    };
+
+    const renderDashboard = () => (
+        <View style={styles.sectionStack}>
+            <Card style={styles.heroCard}>
+                <View style={styles.heroContent}>
+                    <View style={styles.heroText}>
+                        <Text style={styles.heroLabel}>Net available balance</Text>
+                        <Text style={styles.heroAmount}>{currency(stats.totalBalance)}</Text>
+                        <Text style={styles.heroSubtext}>Track your flow, savings, and spending rhythm.</Text>
                     </View>
-                    <View style={styles.summaryDivider} />
-                    <View style={styles.summaryColumn}>
-                        <Text style={styles.summaryLabel}>Expenses</Text>
-                        <Text style={styles.summaryValue}>${summary.expense.toLocaleString()}</Text>
+                    <View style={styles.heroActions}>
+                        <Button label="Add Income" onPress={() => openTransactionModal('income')} style={styles.heroButton} />
+                        <Button label="Add Expense" variant="danger" onPress={() => openTransactionModal('expense')} style={styles.heroButton} />
                     </View>
+                </View>
+            </Card>
+
+            <View style={styles.statGrid}>
+                <Card variant="outline" style={styles.statCard}>
+                    <View style={[styles.statIcon, { backgroundColor: colors.dangerLight }]}>
+                        <Ionicons name="trending-down-outline" size={18} color={colors.danger} />
+                    </View>
+                    <Text style={styles.statLabel}>Today&apos;s Burn</Text>
+                    <Text style={styles.statValue}>{currency(stats.expenseToday)}</Text>
+                </Card>
+                <Card variant="outline" style={styles.statCard}>
+                    <View style={[styles.statIcon, { backgroundColor: colors.warningLight }]}>
+                        <Ionicons name="calendar-outline" size={18} color={colors.warning} />
+                    </View>
+                    <Text style={styles.statLabel}>Weekly Burn</Text>
+                    <Text style={styles.statValue}>{currency(stats.expenseWeek)}</Text>
+                </Card>
+                <Card variant="outline" style={styles.statCard}>
+                    <View style={[styles.statIcon, { backgroundColor: colors.primaryLight }]}>
+                        <Ionicons name="trending-up-outline" size={18} color={colors.success} />
+                    </View>
+                    <Text style={styles.statLabel}>Income Today</Text>
+                    <Text style={styles.statValue}>{currency(stats.incomeToday)}</Text>
                 </Card>
             </View>
 
-            <SectionHeader title="Recent Transactions" />
-            <FlatList
-                data={records}
-                renderItem={renderRecord}
-                keyExtractor={item => item.id.toString()}
-                contentContainerStyle={styles.listContent}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-                }
-                ListEmptyComponent={
-                    !loading ? (
-                        <EmptyState
-                            iconName="wallet-outline"
-                            title="Track your flow"
-                            description="Ready to record a transaction? Let's start building your history."
-                            actionLabel="Add transaction"
-                            onActionPress={() => console.log('Add transaction pressed')}
-                        />
-                    ) : null
-                }
-            />
+            <Card variant="outline">
+                <SectionHeader title="Monthly budget" />
+                <View style={styles.budgetList}>
+                    {budgetStats.map((item) => (
+                        <View key={item.category} style={styles.budgetRow}>
+                            <View style={styles.budgetHeader}>
+                                <Text style={styles.budgetCategory}>{item.category}</Text>
+                                <Text style={styles.budgetAmount}>{currency(item.spent)} / {currency(item.limit)}</Text>
+                            </View>
+                            <View style={styles.progressTrack}>
+                                <View style={[styles.progressFill, { width: `${item.percentage}%`, backgroundColor: item.tone }]} />
+                            </View>
+                        </View>
+                    ))}
+                </View>
+            </Card>
 
-            <FAB iconName="add" onPress={() => console.log('Add transaction pressed')} accessibilityLabel="Add transaction" />
+            <Card variant="outline">
+                <SectionHeader title="Spend breakdown" />
+                {categoryData.entries.length === 0 ? (
+                    <Text style={styles.mutedText}>No expense data yet.</Text>
+                ) : (
+                    <View style={styles.breakdownList}>
+                        {categoryData.entries.map((item, index) => {
+                            const percent = categoryData.total ? (item.value / categoryData.total) * 100 : 0;
+
+                            return (
+                                <View key={item.name} style={styles.breakdownRow}>
+                                    <View style={styles.breakdownHeader}>
+                                        <View style={styles.breakdownLabelWrap}>
+                                            <View style={[styles.breakdownDot, { backgroundColor: CATEGORY_COLORS[index % CATEGORY_COLORS.length] }]} />
+                                            <Text style={styles.breakdownName}>{item.name}</Text>
+                                        </View>
+                                        <Text style={styles.breakdownValue}>{currency(item.value)}</Text>
+                                    </View>
+                                    <View style={styles.progressTrack}>
+                                        <View style={[styles.progressFill, { width: `${percent}%`, backgroundColor: CATEGORY_COLORS[index % CATEGORY_COLORS.length] }]} />
+                                    </View>
+                                </View>
+                            );
+                        })}
+                    </View>
+                )}
+            </Card>
+
+            <Card variant="outline">
+                <SectionHeader title="Daily trend" actionLabel="Last 7 days" />
+                <View style={styles.trendChart}>
+                    {dailyTrend.map((item) => (
+                        <View key={item.label} style={styles.trendBarWrap}>
+                            <Text style={styles.trendAmount}>{item.amount > 0 ? currency(item.amount) : '$0'}</Text>
+                            <View style={styles.trendTrack}>
+                                <View style={[styles.trendBar, { height: `${Math.max((item.amount / maxTrendAmount) * 100, item.amount > 0 ? 10 : 4)}%` }]} />
+                            </View>
+                            <Text style={styles.trendLabel}>{item.label}</Text>
+                        </View>
+                    ))}
+                </View>
+            </Card>
+        </View>
+    );
+
+    const renderCalendar = () => (
+        <View style={styles.sectionStack}>
+            <Card variant="outline">
+                <View style={styles.calendarHeader}>
+                    <Text style={styles.calendarTitle}>{format(calendarMonth, 'MMMM yyyy')}</Text>
+                    <View style={styles.calendarActions}>
+                        <TouchableOpacity style={styles.iconButton} onPress={() => setCalendarMonth((current) => addMonths(current, -1))}>
+                            <Ionicons name="chevron-back" size={18} color={colors.textPrimary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.iconButton} onPress={() => setCalendarMonth((current) => addMonths(current, 1))}>
+                            <Ionicons name="chevron-forward" size={18} color={colors.textPrimary} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                <View style={styles.calendarWeekdays}>
+                    {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+                        <Text key={`${day}-${index}`} style={styles.calendarWeekday}>{day}</Text>
+                    ))}
+                </View>
+
+                <View style={styles.calendarGrid}>
+                    {blankDays.map((_, index) => (
+                        <View key={`blank-${index}`} style={styles.calendarBlank} />
+                    ))}
+                    {daysInMonth.map((day) => {
+                        const key = format(day, 'yyyy-MM-dd');
+                        const dayData = dailyMap[key];
+                        const isSelected = isSameDay(day, selectedDate);
+                        const isToday = isSameDay(day, new Date());
+                        const net = (dayData?.income ?? 0) - (dayData?.expense ?? 0);
+
+                        return (
+                            <TouchableOpacity
+                                key={key}
+                                style={[styles.calendarDay, isSelected && styles.calendarDaySelected]}
+                                onPress={() => setSelectedDate(day)}
+                                activeOpacity={0.8}
+                            >
+                                <Text style={[styles.calendarDayText, isToday && styles.calendarDayToday]}>
+                                    {format(day, 'd')}
+                                </Text>
+                                <View style={styles.calendarDots}>
+                                    {dayData?.income ? <View style={[styles.calendarDot, { backgroundColor: colors.success }]} /> : null}
+                                    {dayData?.expense ? <View style={[styles.calendarDot, { backgroundColor: colors.danger }]} /> : null}
+                                </View>
+                                {dayData ? (
+                                    <Text style={[styles.calendarNet, { color: net >= 0 ? colors.success : colors.danger }]}>
+                                        {net >= 0 ? '+' : '-'}{Math.abs(Math.round(net))}
+                                    </Text>
+                                ) : null}
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
+            </Card>
+
+            <Card variant="outline">
+                <SectionHeader title={`Activity for ${format(selectedDate, 'MMMM d')}`} />
+                {!selectedDay?.transactions.length ? (
+                    <Text style={styles.mutedText}>No transactions recorded for this date.</Text>
+                ) : (
+                    <View style={styles.transactionList}>
+                        {selectedDay.transactions.map((item) => (
+                            <View key={`day-${item.id}`} style={styles.dayTransactionRow}>
+                                <View style={styles.dayTransactionInfo}>
+                                    <View style={[styles.dayTransactionAccent, { backgroundColor: item.type === 'income' ? colors.success : colors.danger }]} />
+                                    <View>
+                                        <Text style={styles.recordDesc}>{item.description || item.category}</Text>
+                                        <Text style={styles.recordDate}>{item.category}</Text>
+                                    </View>
+                                </View>
+                                <Text style={[styles.amount, { color: item.type === 'income' ? colors.success : colors.textPrimary }]}>
+                                    {item.type === 'income' ? '+' : '-'}{currency(toAmount(item.amount))}
+                                </Text>
+                            </View>
+                        ))}
+                    </View>
+                )}
+            </Card>
+        </View>
+    );
+
+    const openVaultModal = (type: 'fund' | 'goal') => {
+        setVaultForm({
+            type,
+            name: '',
+            target: '',
+            deadline: '',
+            isEmergency: false,
+        });
+        setVaultModalVisible(true);
+    };
+
+    const renderVault = () => (
+        <View style={styles.sectionStack}>
+            <Card style={styles.vaultHero}>
+                <View>
+                    <Text style={styles.vaultLabel}>Available in wallet</Text>
+                    <Text style={styles.vaultAmount}>{currency(walletBalance)}</Text>
+                    <Text style={styles.heroSubtext}>Reserved funds and savings goals can branch off from this.</Text>
+                </View>
+                <View style={styles.vaultBadge}>
+                    <Ionicons name="shield-checkmark-outline" size={24} color={colors.secondary} />
+                </View>
+            </Card>
+
+            <Card variant="outline">
+                <SectionHeader title="Savings accounts" actionLabel="Create" onActionPress={() => openVaultModal('fund')} />
+                {funds.length === 0 ? (
+                    <EmptyState
+                        iconName="wallet-outline"
+                        title="No savings accounts yet"
+                        description="Create your first fund for bills, travel, or anything you want ring-fenced."
+                        actionLabel="Create fund"
+                        onActionPress={() => openVaultModal('fund')}
+                    />
+                ) : (
+                    <View style={styles.vaultGrid}>
+                        {funds.map((fund) => {
+                            const currentAmount = toAmount(fund.current_amount);
+                            const targetAmount = toAmount(fund.target_amount);
+                            const progress = targetAmount ? Math.min((currentAmount / targetAmount) * 100, 100) : 0;
+
+                            return (
+                                <Card key={fund.id} style={styles.vaultItemCard} variant="flat">
+                                    <View style={styles.vaultItemHeader}>
+                                        <View>
+                                            <Text style={styles.vaultItemName}>{fund.name}</Text>
+                                            <Text style={styles.recordDate}>Target {currency(targetAmount)}</Text>
+                                        </View>
+                                        <View style={[styles.smallBadge, { backgroundColor: colors.secondaryLight }]}>
+                                            <Ionicons name="card-outline" size={14} color={colors.secondary} />
+                                        </View>
+                                    </View>
+                                    <Text style={styles.vaultCurrent}>{currency(currentAmount)}</Text>
+                                    <View style={styles.progressTrack}>
+                                        <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: colors.secondary }]} />
+                                    </View>
+                                </Card>
+                            );
+                        })}
+                    </View>
+                )}
+            </Card>
+
+            <Card variant="outline">
+                <SectionHeader title="Savings goals" actionLabel="Create" onActionPress={() => openVaultModal('goal')} />
+                {goals.length === 0 ? (
+                    <EmptyState
+                        iconName="flag-outline"
+                        title="No active goals"
+                        description="Set a target and start tracking progress toward your next purchase or buffer."
+                        actionLabel="Create goal"
+                        onActionPress={() => openVaultModal('goal')}
+                    />
+                ) : (
+                    <View style={styles.vaultGrid}>
+                        {goals.map((goal) => {
+                            const currentAmount = toAmount(goal.current_amount);
+                            const targetAmount = toAmount(goal.target_amount);
+                            const progress = targetAmount ? Math.min((currentAmount / targetAmount) * 100, 100) : 0;
+
+                            return (
+                                <Card key={goal.id} style={styles.vaultItemCard} variant="flat">
+                                    <View style={styles.vaultItemHeader}>
+                                        <View>
+                                            <Text style={styles.vaultItemName}>{goal.name}</Text>
+                                            <Text style={styles.recordDate}>
+                                                {goal.deadline ? `Due ${format(parseISO(goal.deadline), 'MMM d, yyyy')}` : 'No deadline'}
+                                            </Text>
+                                        </View>
+                                        <View style={[styles.smallBadge, { backgroundColor: goal.is_emergency_fund ? colors.dangerLight : colors.primaryLight }]}>
+                                            <Ionicons
+                                                name={goal.is_emergency_fund ? 'flash-outline' : 'trophy-outline'}
+                                                size={14}
+                                                color={goal.is_emergency_fund ? colors.danger : colors.success}
+                                            />
+                                        </View>
+                                    </View>
+                                    <Text style={styles.vaultCurrent}>{currency(currentAmount)} / {currency(targetAmount)}</Text>
+                                    <View style={styles.progressTrack}>
+                                        <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: goal.is_emergency_fund ? colors.danger : colors.success }]} />
+                                    </View>
+                                </Card>
+                            );
+                        })}
+                    </View>
+                )}
+            </Card>
+        </View>
+    );
+
+    const renderTransactions = () => (
+        <View style={styles.sectionStack}>
+            <Card variant="outline">
+                <SectionHeader title="Recent transactions" actionLabel="Add" onActionPress={() => openTransactionModal('expense')} />
+                {records.length === 0 ? (
+                    <EmptyState
+                        iconName="wallet-outline"
+                        title="Track your flow"
+                        description="Record a transaction to start building your finance history."
+                        actionLabel="Add transaction"
+                        onActionPress={() => openTransactionModal('expense')}
+                    />
+                ) : (
+                    <View style={styles.transactionList}>
+                        {records.map((item) => (
+                            <Card key={item.id} style={styles.recordCard}>
+                                <View style={[styles.iconBox, { backgroundColor: item.type === 'income' ? colors.primaryLight : colors.dangerLight }]}>
+                                    <Ionicons
+                                        name={item.type === 'income' ? 'arrow-down-outline' : 'arrow-up-outline'}
+                                        size={20}
+                                        color={item.type === 'income' ? colors.success : colors.danger}
+                                    />
+                                </View>
+                                <View style={styles.recordInfo}>
+                                    <Text style={styles.recordDesc}>{item.description || item.category}</Text>
+                                    <Text style={styles.recordDate}>{format(new Date(item.date), 'MMM d, yyyy')} · {item.category}</Text>
+                                </View>
+                                <View style={styles.recordActions}>
+                                    <Text style={[styles.amount, { color: item.type === 'income' ? colors.success : colors.textPrimary }]}>
+                                        {item.type === 'income' ? '+' : '-'}{currency(toAmount(item.amount))}
+                                    </Text>
+                                    <TouchableOpacity onPress={() => deleteTransaction(item.id)} style={styles.deleteButton}>
+                                        <Ionicons name="trash-outline" size={16} color={colors.textSecondary} />
+                                    </TouchableOpacity>
+                                </View>
+                            </Card>
+                        ))}
+                    </View>
+                )}
+            </Card>
+        </View>
+    );
+
+    const renderActiveTab = () => {
+        switch (activeTab) {
+            case 'calendar':
+                return renderCalendar();
+            case 'vault':
+                return renderVault();
+            case 'transactions':
+                return renderTransactions();
+            case 'dashboard':
+            default:
+                return renderDashboard();
+        }
+    };
+
+    if (loading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={styles.loadingText}>Loading finance hub...</Text>
+            </View>
+        );
+    }
+
+    return (
+        <View style={styles.container}>
+            <ScrollView
+                contentContainerStyle={styles.content}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+                showsVerticalScrollIndicator={false}
+            >
+                <View style={styles.header}>
+                    <Text style={styles.title}>Finance Hub</Text>
+                    <Text style={styles.subtitle}>Mobile is now aligned around the same core sections as web.</Text>
+                </View>
+
+                <PillFilter
+                    options={FINANCE_TABS.map((tab) => ({ id: tab.id, label: tab.label }))}
+                    selectedId={activeTab}
+                    onSelect={(id) => setActiveTab(id as typeof FINANCE_TABS[number]['id'])}
+                />
+
+                {renderActiveTab()}
+            </ScrollView>
+
+            <Modal visible={transactionModalVisible} onClose={() => setTransactionModalVisible(false)}>
+                <ScrollView showsVerticalScrollIndicator={false}>
+                    <Text style={styles.modalTitle}>Add transaction</Text>
+                    <Text style={styles.modalSubtitle}>Capture the same core inputs the web flow uses.</Text>
+
+                    <PillFilter
+                        options={TRANSACTION_TYPES.map((item) => ({ id: item.id, label: item.label }))}
+                        selectedId={transactionForm.type}
+                        onSelect={(id) => setTransactionForm((current) => ({
+                            ...current,
+                            type: id as 'income' | 'expense',
+                            category: CATEGORIES[id as 'income' | 'expense'][0],
+                        }))}
+                    />
+
+                    <FormField
+                        label="Amount"
+                        keyboardType="decimal-pad"
+                        value={transactionForm.amount}
+                        onChangeText={(value) => setTransactionForm((current) => ({ ...current, amount: value }))}
+                        placeholder="0.00"
+                    />
+                    <FormField
+                        label="Description"
+                        value={transactionForm.description}
+                        onChangeText={(value) => setTransactionForm((current) => ({ ...current, description: value }))}
+                        placeholder="Optional note"
+                    />
+                    <FormField
+                        label="Date"
+                        value={transactionForm.date}
+                        onChangeText={(value) => setTransactionForm((current) => ({ ...current, date: value }))}
+                        placeholder="YYYY-MM-DD"
+                        autoCapitalize="none"
+                    />
+
+                    <Text style={styles.modalSectionLabel}>Category</Text>
+                    <View style={styles.categoryWrap}>
+                        {CATEGORIES[transactionForm.type].map((category) => {
+                            const selected = category === transactionForm.category;
+                            return (
+                                <TouchableOpacity
+                                    key={category}
+                                    style={[styles.categoryPill, selected && styles.categoryPillSelected]}
+                                    onPress={() => setTransactionForm((current) => ({ ...current, category }))}
+                                >
+                                    <Text style={[styles.categoryPillText, selected && styles.categoryPillTextSelected]}>
+                                        {category}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+
+                    <View style={styles.modalActions}>
+                        <Button label="Cancel" variant="ghost" onPress={() => setTransactionModalVisible(false)} />
+                        <Button label="Save" onPress={submitTransaction} loading={submittingTransaction} />
+                    </View>
+                </ScrollView>
+            </Modal>
+
+            <Modal visible={vaultModalVisible} onClose={() => setVaultModalVisible(false)}>
+                <ScrollView showsVerticalScrollIndicator={false}>
+                    <Text style={styles.modalTitle}>Create vault item</Text>
+                    <Text style={styles.modalSubtitle}>Start with funds and goals first; transfer mechanics can layer in after this.</Text>
+
+                    <PillFilter
+                        options={CREATE_TYPES.map((item) => ({ id: item.id, label: item.label }))}
+                        selectedId={vaultForm.type}
+                        onSelect={(id) => setVaultForm((current) => ({ ...current, type: id as 'fund' | 'goal' }))}
+                    />
+
+                    <FormField
+                        label="Name"
+                        value={vaultForm.name}
+                        onChangeText={(value) => setVaultForm((current) => ({ ...current, name: value }))}
+                        placeholder={vaultForm.type === 'fund' ? 'Bills reserve' : 'New laptop'}
+                    />
+                    <FormField
+                        label="Target amount"
+                        keyboardType="decimal-pad"
+                        value={vaultForm.target}
+                        onChangeText={(value) => setVaultForm((current) => ({ ...current, target: value }))}
+                        placeholder="0.00"
+                    />
+
+                    {vaultForm.type === 'goal' ? (
+                        <>
+                            <FormField
+                                label="Deadline"
+                                value={vaultForm.deadline}
+                                onChangeText={(value) => setVaultForm((current) => ({ ...current, deadline: value }))}
+                                placeholder="YYYY-MM-DD"
+                                autoCapitalize="none"
+                            />
+                            <View style={styles.switchRow}>
+                                <View style={styles.switchCopy}>
+                                    <Text style={styles.switchTitle}>Emergency fund</Text>
+                                    <Text style={styles.switchDescription}>Marks the goal as a safety buffer.</Text>
+                                </View>
+                                <Switch
+                                    value={vaultForm.isEmergency}
+                                    onValueChange={(value) => setVaultForm((current) => ({ ...current, isEmergency: value }))}
+                                    thumbColor={colors.surface}
+                                    trackColor={{ false: colors.border, true: colors.danger }}
+                                />
+                            </View>
+                        </>
+                    ) : null}
+
+                    <View style={styles.modalActions}>
+                        <Button label="Cancel" variant="ghost" onPress={() => setVaultModalVisible(false)} />
+                        <Button label="Create" onPress={submitVaultItem} loading={submittingVaultItem} />
+                    </View>
+                </ScrollView>
+            </Modal>
+
+            <TouchableOpacity style={styles.fab} onPress={() => openTransactionModal('expense')} accessibilityLabel="Add transaction">
+                <Ionicons name="add" size={28} color={colors.surface} />
+            </TouchableOpacity>
         </View>
     );
 }
@@ -116,43 +961,351 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.background,
     },
-    summaryContainer: {
+    content: {
         padding: spacing.md,
+        paddingBottom: spacing.xxxl + 32,
+        gap: spacing.lg,
     },
-    summaryCard: {
-        flexDirection: 'row',
-        padding: spacing.lg,
-        alignItems: 'center',
-        justifyContent: 'space-around',
+    header: {
+        gap: spacing.xs,
     },
-    summaryColumn: {
-        alignItems: 'center',
-    },
-    summaryLabel: {
-        fontSize: typography.sizes.xs,
-        color: colors.textSecondary,
-        fontWeight: typography.weights.medium,
-        marginBottom: 4,
-    },
-    summaryValue: {
-        fontSize: typography.sizes.xl,
+    title: {
+        fontSize: typography.sizes.xxl,
         fontWeight: typography.weights.bold,
         color: colors.textPrimary,
     },
-    summaryDivider: {
-        width: 1,
-        height: 40,
-        backgroundColor: colors.borderLight,
+    subtitle: {
+        fontSize: typography.sizes.sm,
+        color: colors.textSecondary,
+        lineHeight: typography.lineHeights.sm,
     },
-    listContent: {
-        paddingHorizontal: spacing.md,
-        paddingBottom: spacing.xxxl,
+    sectionStack: {
+        gap: spacing.md,
+    },
+    heroCard: {
+        padding: spacing.xl,
+        backgroundColor: '#1F2933',
+        borderWidth: 1,
+        borderColor: '#2D3B47',
+    },
+    heroContent: {
+        gap: spacing.lg,
+    },
+    heroText: {
+        gap: spacing.xs,
+    },
+    heroLabel: {
+        color: '#B7C2CC',
+        textTransform: 'uppercase',
+        fontSize: typography.sizes.xs,
+        fontWeight: typography.weights.bold,
+        letterSpacing: 1,
+    },
+    heroAmount: {
+        color: colors.surface,
+        fontSize: 40,
+        fontWeight: typography.weights.bold,
+    },
+    heroSubtext: {
+        color: '#C9D3DC',
+        fontSize: typography.sizes.sm,
+        lineHeight: typography.lineHeights.sm,
+    },
+    heroActions: {
+        flexDirection: 'row',
+        gap: spacing.sm,
+    },
+    heroButton: {
+        flex: 1,
+    },
+    statGrid: {
+        gap: spacing.sm,
+    },
+    statCard: {
+        gap: spacing.sm,
+    },
+    statIcon: {
+        width: 34,
+        height: 34,
+        borderRadius: radius.md,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    statLabel: {
+        fontSize: typography.sizes.xs,
+        textTransform: 'uppercase',
+        color: colors.textSecondary,
+        fontWeight: typography.weights.bold,
+        letterSpacing: 0.8,
+    },
+    statValue: {
+        fontSize: typography.sizes.xl,
+        color: colors.textPrimary,
+        fontWeight: typography.weights.bold,
+    },
+    budgetList: {
+        gap: spacing.md,
+    },
+    budgetRow: {
+        gap: spacing.xs,
+    },
+    budgetHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        gap: spacing.sm,
+    },
+    budgetCategory: {
+        fontSize: typography.sizes.md,
+        color: colors.textPrimary,
+        fontWeight: typography.weights.medium,
+    },
+    budgetAmount: {
+        fontSize: typography.sizes.sm,
+        color: colors.textSecondary,
+    },
+    progressTrack: {
+        height: 10,
+        backgroundColor: colors.borderLight,
+        borderRadius: radius.pill,
+        overflow: 'hidden',
+    },
+    progressFill: {
+        height: '100%',
+        borderRadius: radius.pill,
+    },
+    breakdownList: {
+        gap: spacing.md,
+    },
+    breakdownRow: {
+        gap: spacing.xs,
+    },
+    breakdownHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
+    breakdownLabelWrap: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
+    breakdownDot: {
+        width: 10,
+        height: 10,
+        borderRadius: radius.pill,
+    },
+    breakdownName: {
+        fontSize: typography.sizes.md,
+        color: colors.textPrimary,
+        fontWeight: typography.weights.medium,
+    },
+    breakdownValue: {
+        fontSize: typography.sizes.sm,
+        color: colors.textSecondary,
+    },
+    trendChart: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        justifyContent: 'space-between',
+        gap: spacing.xs,
+        minHeight: 180,
+        paddingTop: spacing.sm,
+    },
+    trendBarWrap: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        gap: spacing.xs,
+    },
+    trendAmount: {
+        fontSize: 10,
+        color: colors.textTertiary,
+    },
+    trendTrack: {
+        width: '100%',
+        height: 120,
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+    },
+    trendBar: {
+        width: '70%',
+        backgroundColor: colors.primary,
+        borderTopLeftRadius: radius.sm,
+        borderTopRightRadius: radius.sm,
+        minHeight: 4,
+    },
+    trendLabel: {
+        fontSize: 11,
+        color: colors.textSecondary,
+    },
+    calendarHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.md,
+    },
+    calendarTitle: {
+        fontSize: typography.sizes.lg,
+        fontWeight: typography.weights.bold,
+        color: colors.textPrimary,
+    },
+    calendarActions: {
+        flexDirection: 'row',
+        gap: spacing.sm,
+    },
+    iconButton: {
+        width: 36,
+        height: 36,
+        borderRadius: radius.md,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.surfaceLayered,
+    },
+    calendarWeekdays: {
+        flexDirection: 'row',
+        marginBottom: spacing.sm,
+    },
+    calendarWeekday: {
+        flex: 1,
+        textAlign: 'center',
+        fontSize: typography.sizes.xs,
+        color: colors.textSecondary,
+        fontWeight: typography.weights.bold,
+    },
+    calendarGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: spacing.xs,
+    },
+    calendarBlank: {
+        width: '13%',
+    },
+    calendarDay: {
+        width: '13%',
+        minHeight: 74,
+        borderRadius: radius.md,
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: colors.surface,
+        padding: spacing.xs,
+        justifyContent: 'space-between',
+    },
+    calendarDaySelected: {
+        borderColor: colors.primary,
+        backgroundColor: colors.primaryLight,
+    },
+    calendarDayText: {
+        fontSize: typography.sizes.xs,
+        color: colors.textSecondary,
+        fontWeight: typography.weights.bold,
+    },
+    calendarDayToday: {
+        color: colors.primary,
+    },
+    calendarDots: {
+        flexDirection: 'row',
+        gap: 3,
+        alignSelf: 'center',
+    },
+    calendarDot: {
+        width: 6,
+        height: 6,
+        borderRadius: radius.pill,
+    },
+    calendarNet: {
+        fontSize: 10,
+        textAlign: 'center',
+        fontWeight: typography.weights.bold,
+    },
+    mutedText: {
+        fontSize: typography.sizes.sm,
+        color: colors.textSecondary,
+    },
+    transactionList: {
+        gap: spacing.sm,
+    },
+    dayTransactionRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: spacing.sm,
+        paddingVertical: spacing.sm,
+    },
+    dayTransactionInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+        flex: 1,
+    },
+    dayTransactionAccent: {
+        width: 4,
+        alignSelf: 'stretch',
+        borderRadius: radius.pill,
+    },
+    vaultHero: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: colors.secondaryLight,
+        borderWidth: 1,
+        borderColor: '#D8E2E9',
+    },
+    vaultLabel: {
+        fontSize: typography.sizes.xs,
+        textTransform: 'uppercase',
+        color: colors.textSecondary,
+        fontWeight: typography.weights.bold,
+        letterSpacing: 0.8,
+    },
+    vaultAmount: {
+        fontSize: typography.sizes.xxl,
+        fontWeight: typography.weights.bold,
+        color: colors.textPrimary,
+        marginTop: spacing.xs,
+        marginBottom: spacing.xs,
+    },
+    vaultBadge: {
+        width: 52,
+        height: 52,
+        borderRadius: radius.lg,
+        backgroundColor: colors.surface,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    vaultGrid: {
+        gap: spacing.sm,
+    },
+    vaultItemCard: {
+        gap: spacing.md,
+    },
+    vaultItemHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+    },
+    vaultItemName: {
+        fontSize: typography.sizes.md,
+        fontWeight: typography.weights.bold,
+        color: colors.textPrimary,
+    },
+    smallBadge: {
+        width: 28,
+        height: 28,
+        borderRadius: radius.sm,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    vaultCurrent: {
+        fontSize: typography.sizes.lg,
+        fontWeight: typography.weights.bold,
+        color: colors.textPrimary,
     },
     recordCard: {
         flexDirection: 'row',
         alignItems: 'center',
         padding: spacing.md,
-        marginBottom: spacing.sm,
+        gap: spacing.md,
     },
     iconBox: {
         width: 40,
@@ -160,10 +1313,10 @@ const styles = StyleSheet.create({
         borderRadius: radius.md,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: spacing.md,
     },
     recordInfo: {
         flex: 1,
+        gap: 2,
     },
     recordDesc: {
         fontSize: typography.sizes.md,
@@ -173,10 +1326,110 @@ const styles = StyleSheet.create({
     recordDate: {
         fontSize: typography.sizes.xs,
         color: colors.textTertiary,
-        marginTop: 2,
     },
     amount: {
         fontSize: typography.sizes.md,
         fontWeight: typography.weights.bold,
+    },
+    recordActions: {
+        alignItems: 'flex-end',
+        gap: spacing.xs,
+    },
+    deleteButton: {
+        padding: spacing.xs,
+    },
+    modalTitle: {
+        fontSize: typography.sizes.xl,
+        fontWeight: typography.weights.bold,
+        color: colors.textPrimary,
+        marginBottom: spacing.xs,
+    },
+    modalSubtitle: {
+        fontSize: typography.sizes.sm,
+        color: colors.textSecondary,
+        marginBottom: spacing.md,
+        lineHeight: typography.lineHeights.sm,
+    },
+    modalSectionLabel: {
+        fontSize: typography.sizes.sm,
+        color: colors.textSecondary,
+        fontWeight: typography.weights.medium,
+        marginBottom: spacing.sm,
+    },
+    categoryWrap: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: spacing.sm,
+        marginBottom: spacing.md,
+    },
+    categoryPill: {
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        borderRadius: radius.pill,
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: colors.surface,
+    },
+    categoryPillSelected: {
+        backgroundColor: colors.primaryLight,
+        borderColor: colors.primary,
+    },
+    categoryPillText: {
+        fontSize: typography.sizes.sm,
+        color: colors.textSecondary,
+    },
+    categoryPillTextSelected: {
+        color: colors.primary,
+        fontWeight: typography.weights.medium,
+    },
+    switchRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: spacing.md,
+        marginBottom: spacing.md,
+        paddingVertical: spacing.sm,
+    },
+    switchCopy: {
+        flex: 1,
+        gap: 2,
+    },
+    switchTitle: {
+        fontSize: typography.sizes.md,
+        color: colors.textPrimary,
+        fontWeight: typography.weights.medium,
+    },
+    switchDescription: {
+        fontSize: typography.sizes.sm,
+        color: colors.textSecondary,
+    },
+    modalActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: spacing.sm,
+        marginTop: spacing.sm,
+    },
+    fab: {
+        position: 'absolute',
+        right: spacing.lg,
+        bottom: spacing.lg,
+        width: 60,
+        height: 60,
+        borderRadius: radius.pill,
+        backgroundColor: colors.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+        ...shadows.floating,
+    },
+    loadingContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.background,
+        gap: spacing.md,
+    },
+    loadingText: {
+        fontSize: typography.sizes.md,
+        color: colors.textSecondary,
     },
 });
