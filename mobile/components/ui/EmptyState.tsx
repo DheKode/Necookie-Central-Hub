@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, spacing } from '../../theme';
+import { colors, radius, typography, spacing } from '../../theme';
 import { Button } from './Button';
+import { Card } from './Card';
 
 interface EmptyStateProps {
     iconName?: keyof typeof Ionicons.glyphMap;
@@ -20,7 +21,7 @@ export function EmptyState({
     onActionPress
 }: EmptyStateProps) {
     return (
-        <View style={styles.container}>
+        <Card variant="outline" style={styles.container}>
             {iconName && (
                 <View style={styles.iconContainer}>
                     <Ionicons name={iconName} size={48} color={colors.primary} />
@@ -36,21 +37,24 @@ export function EmptyState({
                     style={styles.button}
                 />
             )}
-        </View>
+        </Card>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
-        flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        padding: spacing.xl,
+        paddingVertical: spacing.xl,
+        paddingHorizontal: spacing.lg,
     },
     iconContainer: {
         backgroundColor: colors.primaryLight,
-        padding: spacing.lg,
-        borderRadius: 9999,
+        width: 88,
+        height: 88,
+        borderRadius: radius.pill,
+        alignItems: 'center',
+        justifyContent: 'center',
         marginBottom: spacing.lg,
     },
     title: {

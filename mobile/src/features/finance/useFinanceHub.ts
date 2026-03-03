@@ -1,0 +1,685 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Alert } from 'react-native';
+import {
+    eachDayOfInterval,
+    endOfMonth,
+    format,
+    getDay,
+    isSameMonth,
+    startOfMonth,
+} from 'date-fns';
+import { dataService } from '../../services/dataService';
+import { useRefreshOnFocus } from '../../hooks/useRefreshOnFocus';
+import { CATEGORIES } from './constants';
+import {
+    buildBudgetStats,
+    buildCategoryData,
+    buildDailyMap,
+    buildDailyTrend,
+    buildStats,
+    isValidFinanceDate,
+    normalizeFundRecord,
+    normalizeGoalRecord,
+    sanitizeAmountInput,
+    sanitizeDateInput,
+    toAmount,
+} from './utils';
+import type {
+    FinanceRecord,
+    FundRecord,
+    GoalRecord,
+    TransactionFormErrors,
+    TransactionFormState,
+    TransactionSortMode,
+    TransactionTypeFilter,
+    VaultEditingState,
+    VaultFeedback,
+    VaultFormErrors,
+    VaultFormState,
+    VaultTransferState,
+} from './types';
+
+const createTransactionForm = (type: 'income' | 'expense'): TransactionFormState => ({
+    type,
+    amount: '',
+    category: CATEGORIES[type][0],
+    description: '',
+    date: format(new Date(), 'yyyy-MM-dd'),
+});
+
+const defaultTransactionErrors = (): TransactionFormErrors => ({});
+
+const createVaultForm = (type: 'fund' | 'goal'): VaultFormState => ({
+    type,
+    name: '',
+    target: '',
+    deadline: '',
+    isEmergency: false,
+});
+
+const defaultVaultErrors = (): VaultFormErrors => ({});
+
+const defaultVaultEditing = (): VaultEditingState => ({
+    mode: 'create',
+    itemType: 'fund',
+    itemId: null,
+});
+
+const defaultTransferState = (): VaultTransferState => ({
+    visible: false,
+    itemType: 'fund',
+    action: 'deposit',
+    itemId: null,
+    itemName: '',
+    currentAmount: 0,
+});
+
+export const useFinanceHub = () => {
+    const [records, setRecords] = useState<FinanceRecord[]>([]);
+    const [funds, setFunds] = useState<FundRecord[]>([]);
+    const [goals, setGoals] = useState<GoalRecord[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [submittingTransaction, setSubmittingTransaction] = useState(false);
+    const [submittingVaultItem, setSubmittingVaultItem] = useState(false);
+    const [submittingTransfer, setSubmittingTransfer] = useState(false);
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'calendar' | 'vault' | 'transactions'>('dashboard');
+    const [transactionModalVisible, setTransactionModalVisible] = useState(false);
+    const [vaultModalVisible, setVaultModalVisible] = useState(false);
+    const [transferModalVisible, setTransferModalVisible] = useState(false);
+    const [vaultEditing, setVaultEditing] = useState<VaultEditingState>(defaultVaultEditing);
+    const [transferState, setTransferState] = useState<VaultTransferState>(defaultTransferState);
+    const [vaultFeedback, setVaultFeedback] = useState<VaultFeedback | null>(null);
+    const [calendarMonth, setCalendarMonth] = useState(new Date());
+    const [selectedDate, setSelectedDate] = useState(new Date());
+    const [transactionForm, setTransactionForm] = useState<TransactionFormState>(createTransactionForm('expense'));
+    const [transactionErrors, setTransactionErrors] = useState<TransactionFormErrors>(defaultTransactionErrors);
+    const [vaultForm, setVaultForm] = useState<VaultFormState>(createVaultForm('fund'));
+    const [vaultErrors, setVaultErrors] = useState<VaultFormErrors>(defaultVaultErrors);
+    const [transferAmount, setTransferAmount] = useState('');
+    const [transactionSearch, setTransactionSearch] = useState('');
+    const [transactionTypeFilter, setTransactionTypeFilter] = useState<TransactionTypeFilter>('all');
+    const [transactionCategoryFilter, setTransactionCategoryFilter] = useState('all');
+    const [transactionSortMode, setTransactionSortMode] = useState<TransactionSortMode>('newest');
+
+    const loadData = async (isRefresh = false) => {
+        if (!isRefresh) {
+            setLoading(true);
+        }
+
+        try {
+            setError(null);
+            const [financeData, fundData, goalData] = await Promise.all([
+                dataService.fetchFinanceRecords(),
+                dataService.fetchFunds(),
+                dataService.fetchGoals(),
+            ]);
+
+            setRecords((financeData ?? []) as FinanceRecord[]);
+            setFunds(((fundData ?? []) as any[]).map(normalizeFundRecord));
+            setGoals(((goalData ?? []) as any[]).map(normalizeGoalRecord));
+        } catch (error) {
+            console.error('Failed to load finance data:', error);
+            setError('Finance data could not be loaded.');
+            if (!isRefresh) {
+                Alert.alert('Error', 'Failed to load finance data.');
+            }
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    };
+
+    useRefreshOnFocus(() => {
+        loadData();
+    });
+
+    const onRefresh = () => {
+        setRefreshing(true);
+        loadData(true);
+    };
+
+    const stats = useMemo(() => buildStats(records), [records]);
+    const budgetStats = useMemo(() => buildBudgetStats(records), [records]);
+    const categoryData = useMemo(() => buildCategoryData(records), [records]);
+    const dailyTrend = useMemo(() => buildDailyTrend(records), [records]);
+    const dailyMap = useMemo(() => buildDailyMap(records), [records]);
+    const selectedDateKey = format(selectedDate, 'yyyy-MM-dd');
+    const selectedDay = dailyMap[selectedDateKey];
+    const daysInMonth = useMemo(() => eachDayOfInterval({
+        start: startOfMonth(calendarMonth),
+        end: endOfMonth(calendarMonth),
+    }), [calendarMonth]);
+    const blankDays = useMemo(() => Array(getDay(startOfMonth(calendarMonth))).fill(null), [calendarMonth]);
+    const maxTrendAmount = Math.max(...dailyTrend.map((item) => item.amount), 1);
+    const walletBalance = stats.totalBalance;
+    const transactionCategoryOptions = useMemo(() => {
+        const allowedTypes = transactionTypeFilter === 'all'
+            ? ['income', 'expense']
+            : [transactionTypeFilter];
+        const dynamicCategories = records
+            .filter((record) => allowedTypes.includes(record.type))
+            .map((record) => record.category);
+        const defaults = allowedTypes.flatMap((type) => CATEGORIES[type as 'income' | 'expense']);
+
+        return ['all', ...Array.from(new Set([...defaults, ...dynamicCategories]))];
+    }, [records, transactionTypeFilter]);
+    const filteredTransactions = useMemo(() => {
+        const searchTerm = transactionSearch.trim().toLowerCase();
+        const sorted = records
+            .filter((record) => {
+                if (transactionTypeFilter !== 'all' && record.type !== transactionTypeFilter) {
+                    return false;
+                }
+
+                if (transactionCategoryFilter !== 'all' && record.category !== transactionCategoryFilter) {
+                    return false;
+                }
+
+                if (!searchTerm) {
+                    return true;
+                }
+
+                const amountLabel = String(toAmount(record.amount));
+                const description = (record.description ?? '').toLowerCase();
+                const category = record.category.toLowerCase();
+
+                return description.includes(searchTerm)
+                    || category.includes(searchTerm)
+                    || amountLabel.includes(searchTerm);
+            })
+            .sort((left, right) => {
+                if (transactionSortMode === 'highest') {
+                    return toAmount(right.amount) - toAmount(left.amount);
+                }
+
+                if (transactionSortMode === 'lowest') {
+                    return toAmount(left.amount) - toAmount(right.amount);
+                }
+
+                const leftTime = new Date(left.date).getTime();
+                const rightTime = new Date(right.date).getTime();
+                return transactionSortMode === 'oldest' ? leftTime - rightTime : rightTime - leftTime;
+            });
+
+        return sorted;
+    }, [records, transactionCategoryFilter, transactionSearch, transactionSortMode, transactionTypeFilter]);
+
+    const openTransactionModal = (type: 'income' | 'expense') => {
+        setTransactionForm(createTransactionForm(type));
+        setTransactionErrors(defaultTransactionErrors());
+        setTransactionModalVisible(true);
+    };
+
+    const closeTransactionModal = () => {
+        setTransactionErrors(defaultTransactionErrors());
+        setTransactionModalVisible(false);
+    };
+
+    const updateTransactionForm = (updater: (current: TransactionFormState) => TransactionFormState) => {
+        setTransactionForm((current) => updater(current));
+    };
+
+    const updateTransactionAmount = (value: string) => {
+        const amount = sanitizeAmountInput(value);
+        setTransactionForm((current) => ({ ...current, amount }));
+        setTransactionErrors((current) => ({ ...current, amount: undefined }));
+    };
+
+    const updateTransactionDate = (value: string) => {
+        const date = sanitizeDateInput(value);
+        setTransactionForm((current) => ({ ...current, date }));
+        setTransactionErrors((current) => ({ ...current, date: undefined }));
+    };
+
+    useEffect(() => {
+        if (!transactionCategoryOptions.includes(transactionCategoryFilter)) {
+            setTransactionCategoryFilter('all');
+        }
+    }, [transactionCategoryFilter, transactionCategoryOptions]);
+
+    useEffect(() => {
+        if (!isSameMonth(selectedDate, calendarMonth)) {
+            setSelectedDate(startOfMonth(calendarMonth));
+        }
+    }, [calendarMonth, selectedDate]);
+
+    const submitTransaction = async () => {
+        const nextErrors: TransactionFormErrors = {};
+        const amount = Number(transactionForm.amount);
+        const date = transactionForm.date.trim();
+
+        if (!transactionForm.amount || !Number.isFinite(amount) || amount <= 0) {
+            nextErrors.amount = 'Enter an amount greater than 0.';
+        }
+
+        if (!transactionForm.category) {
+            nextErrors.category = 'Choose a category before saving.';
+        }
+
+        if (!isValidFinanceDate(date)) {
+            nextErrors.date = 'Use a real date in YYYY-MM-DD format.';
+        }
+
+        if (Object.keys(nextErrors).length > 0) {
+            setTransactionErrors(nextErrors);
+            return;
+        }
+
+        setTransactionErrors(defaultTransactionErrors());
+        setSubmittingTransaction(true);
+
+        try {
+            const { data, error } = await dataService.addFinanceRecord({
+                type: transactionForm.type,
+                amount,
+                category: transactionForm.category,
+                description: transactionForm.description.trim() || null,
+                date,
+                payment_method: null,
+                is_recurring: false,
+                recurrence_interval: null,
+            });
+
+            if (error) {
+                throw error;
+            }
+
+            if (data?.[0]) {
+                setRecords((current) => [data[0] as FinanceRecord, ...current]);
+            }
+
+            closeTransactionModal();
+        } catch (error) {
+            console.error('Failed to create transaction:', error);
+            Alert.alert('Error', 'Failed to save transaction.');
+        } finally {
+            setSubmittingTransaction(false);
+        }
+    };
+
+    const deleteTransaction = (id: number) => {
+        Alert.alert('Delete transaction', 'This will remove the record permanently.', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: async () => {
+                    try {
+                        const { error } = await dataService.deleteFinanceRecord(id);
+                        if (error) {
+                            throw error;
+                        }
+
+                        setRecords((current) => current.filter((record) => record.id !== id));
+                    } catch (error) {
+                        console.error('Failed to delete transaction:', error);
+                        Alert.alert('Error', 'Failed to delete transaction.');
+                    }
+                },
+            },
+        ]);
+    };
+
+    const closeVaultModal = () => {
+        setVaultErrors(defaultVaultErrors());
+        setVaultModalVisible(false);
+        setVaultEditing(defaultVaultEditing());
+    };
+
+    const openVaultModal = (type: 'fund' | 'goal') => {
+        setVaultEditing({ mode: 'create', itemType: type, itemId: null });
+        setVaultForm(createVaultForm(type));
+        setVaultErrors(defaultVaultErrors());
+        setVaultModalVisible(true);
+    };
+
+    const openVaultEditModal = (item: FundRecord | GoalRecord, type: 'fund' | 'goal') => {
+        const goalItem = type === 'goal' ? item as GoalRecord : null;
+
+        setVaultEditing({ mode: 'edit', itemType: type, itemId: item.id });
+        setVaultForm({
+            type,
+            name: item.name,
+            target: String(toAmount(item.target_amount)),
+            deadline: goalItem?.deadline ?? '',
+            isEmergency: Boolean(goalItem?.is_emergency_fund),
+        });
+        setVaultErrors(defaultVaultErrors());
+        setVaultModalVisible(true);
+    };
+
+    const updateVaultForm = (updater: (current: VaultFormState) => VaultFormState) => {
+        setVaultForm((current) => updater(current));
+    };
+
+    const updateVaultTarget = (value: string) => {
+        const target = sanitizeAmountInput(value);
+        setVaultForm((current) => ({ ...current, target }));
+        setVaultErrors((current) => ({ ...current, target: undefined }));
+    };
+
+    const updateVaultDeadline = (value: string) => {
+        const deadline = sanitizeDateInput(value);
+        setVaultForm((current) => ({ ...current, deadline }));
+        setVaultErrors((current) => ({ ...current, deadline: undefined }));
+    };
+
+    const submitVaultItem = async () => {
+        const nextErrors: VaultFormErrors = {};
+        const targetAmount = Number(vaultForm.target);
+        const deadline = vaultForm.deadline.trim();
+
+        if (!vaultForm.name.trim()) {
+            nextErrors.name = 'Name is required.';
+        }
+
+        if (!vaultForm.target.trim() || !Number.isFinite(targetAmount) || targetAmount <= 0) {
+            nextErrors.target = 'Enter a target amount greater than 0.';
+        }
+
+        if (vaultForm.type === 'goal' && deadline && !isValidFinanceDate(deadline)) {
+            nextErrors.deadline = 'Use a real date in YYYY-MM-DD format.';
+        }
+
+        if (Object.keys(nextErrors).length > 0) {
+            setVaultErrors(nextErrors);
+            return;
+        }
+
+        setVaultErrors(defaultVaultErrors());
+        setSubmittingVaultItem(true);
+
+        try {
+            if (vaultForm.type === 'fund') {
+                const payload = {
+                    name: vaultForm.name.trim(),
+                    target_amount: targetAmount,
+                    current_amount: 0,
+                    color: 'sage',
+                };
+                const result = vaultEditing.mode === 'edit' && vaultEditing.itemType === 'fund'
+                    ? await dataService.updateFund(vaultEditing.itemId, {
+                        name: payload.name,
+                        target_amount: payload.target_amount,
+                    })
+                    : await dataService.addFund(payload);
+                const saved = result.data?.[0] ? normalizeFundRecord(result.data[0]) : undefined;
+
+                if (result.error) {
+                    throw result.error;
+                }
+
+                if (saved) {
+                    setFunds((current) => (
+                        vaultEditing.mode === 'edit'
+                            ? current.map((fund) => (fund.id === saved.id ? { ...fund, ...saved } : fund))
+                            : [...current, saved]
+                    ));
+                }
+            } else {
+                const payload = {
+                    name: vaultForm.name.trim(),
+                    target_amount: targetAmount,
+                    current_amount: 0,
+                    deadline: deadline || null,
+                    is_emergency_fund: vaultForm.isEmergency,
+                };
+                const result = vaultEditing.mode === 'edit' && vaultEditing.itemType === 'goal'
+                    ? await dataService.updateGoal(vaultEditing.itemId, payload)
+                    : await dataService.addGoal(payload);
+                const saved = result.data?.[0] ? normalizeGoalRecord(result.data[0]) : undefined;
+
+                if (result.error) {
+                    throw result.error;
+                }
+
+                if (saved) {
+                    setGoals((current) => (
+                        vaultEditing.mode === 'edit'
+                            ? current.map((goal) => (goal.id === saved.id ? { ...goal, ...saved } : goal))
+                            : [...current, saved]
+                    ));
+                }
+            }
+
+            closeVaultModal();
+            setVaultForm(createVaultForm('fund'));
+        } catch (error) {
+            console.error('Failed to save vault item:', error);
+            Alert.alert('Error', 'Failed to save vault item.');
+        } finally {
+            setSubmittingVaultItem(false);
+        }
+    };
+
+    const deleteVaultItem = (itemType: 'fund' | 'goal', itemId: number) => {
+        const noun = itemType === 'fund' ? 'fund' : 'goal';
+
+        Alert.alert(`Delete ${noun}`, `This will permanently remove the savings ${noun}.`, [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: async () => {
+                    try {
+                        const result = itemType === 'fund'
+                            ? await dataService.deleteFund(itemId)
+                            : await dataService.deleteGoal(itemId);
+
+                        if (result.error) {
+                            throw result.error;
+                        }
+
+                        if (itemType === 'fund') {
+                            setFunds((current) => current.filter((fund) => fund.id !== itemId));
+                        } else {
+                            setGoals((current) => current.filter((goal) => goal.id !== itemId));
+                        }
+                    } catch (error) {
+                        console.error(`Failed to delete ${noun}:`, error);
+                        Alert.alert('Error', `Failed to delete ${noun}.`);
+                    }
+                },
+            },
+        ]);
+    };
+
+    const closeTransferModal = () => {
+        setTransferModalVisible(false);
+        setTransferAmount('');
+        setTransferState(defaultTransferState());
+    };
+
+    const updateTransferAmount = (value: string) => {
+        setTransferAmount(sanitizeAmountInput(value));
+    };
+
+    const openTransferModal = (
+        item: FundRecord | GoalRecord,
+        itemType: 'fund' | 'goal',
+        action: 'deposit' | 'withdraw' | 'adjust',
+    ) => {
+        setVaultFeedback(null);
+        setTransferState({
+            visible: true,
+            itemType,
+            action,
+            itemId: item.id,
+            itemName: item.name,
+            currentAmount: toAmount(item.current_amount),
+        });
+        setTransferAmount('');
+        setTransferModalVisible(true);
+    };
+
+    const submitTransfer = async () => {
+        const amount = Number(transferAmount);
+
+        if (!transferState.itemId || !Number.isFinite(amount) || amount <= 0) {
+            setVaultFeedback({ tone: 'error', message: 'Enter a valid transfer amount.' });
+            return;
+        }
+
+        if (transferState.action === 'deposit' && amount > walletBalance) {
+            setVaultFeedback({ tone: 'error', message: 'Not enough wallet balance for this transfer.' });
+            return;
+        }
+
+        if (transferState.action === 'withdraw' && amount > transferState.currentAmount) {
+            setVaultFeedback({ tone: 'error', message: 'You cannot withdraw more than the reserved amount.' });
+            return;
+        }
+
+        setSubmittingTransfer(true);
+        setVaultFeedback(null);
+
+        const nextAmount = transferState.action === 'deposit'
+            ? transferState.currentAmount + amount
+            : transferState.action === 'withdraw'
+                ? transferState.currentAmount - amount
+                : amount;
+        const financePayload = transferState.action === 'adjust'
+            ? null
+            : {
+                type: transferState.action === 'deposit' ? 'expense' as const : 'income' as const,
+                amount,
+                category: 'Savings',
+                description: `${transferState.action === 'deposit' ? 'Transfer to' : 'Withdraw from'} ${transferState.itemName}`,
+                date: format(new Date(), 'yyyy-MM-dd'),
+                payment_method: null,
+                is_recurring: false,
+                recurrence_interval: null,
+            };
+
+        try {
+            const updateResult = transferState.itemType === 'fund'
+                ? await dataService.updateFund(transferState.itemId, { current_amount: nextAmount })
+                : await dataService.updateGoal(transferState.itemId, { current_amount: nextAmount });
+
+            if (updateResult.error) {
+                throw updateResult.error;
+            }
+
+            const financeResult = financePayload
+                ? await dataService.addFinanceRecord(financePayload)
+                : { data: null, error: null };
+
+            if (financeResult.error) {
+                const rollbackResult = transferState.itemType === 'fund'
+                    ? await dataService.updateFund(transferState.itemId, { current_amount: transferState.currentAmount })
+                    : await dataService.updateGoal(transferState.itemId, { current_amount: transferState.currentAmount });
+
+                if (rollbackResult.error) {
+                    console.error('Failed to roll back vault transfer after finance write error:', rollbackResult.error);
+                }
+
+                throw financeResult.error;
+            }
+
+            if (transferState.itemType === 'fund' && updateResult.data?.[0]) {
+                const normalized = normalizeFundRecord(updateResult.data[0]);
+                setFunds((current) => current.map((fund) => (fund.id === normalized.id ? { ...fund, ...normalized } : fund)));
+            }
+
+            if (transferState.itemType === 'goal' && updateResult.data?.[0]) {
+                const normalized = normalizeGoalRecord(updateResult.data[0]);
+                setGoals((current) => current.map((goal) => (goal.id === normalized.id ? { ...goal, ...normalized } : goal)));
+            }
+
+            if (financeResult.data?.[0]) {
+                setRecords((current) => [financeResult.data[0] as FinanceRecord, ...current]);
+            }
+
+            setVaultFeedback({
+                tone: 'success',
+                message: transferState.action === 'adjust'
+                    ? `Adjusted ${transferState.itemName} to $${Math.round(amount).toLocaleString()} without changing wallet balance.`
+                    : `${transferState.action === 'deposit' ? 'Moved' : 'Returned'} $${Math.round(amount).toLocaleString()} ${transferState.action === 'deposit' ? 'into' : 'from'} ${transferState.itemName}.`,
+            });
+            closeTransferModal();
+        } catch (error) {
+            console.error('Failed to complete vault transfer:', error);
+            setVaultFeedback({ tone: 'error', message: 'Transfer failed. Data was refreshed to keep balances accurate.' });
+            closeTransferModal();
+            loadData(true);
+        } finally {
+            setSubmittingTransfer(false);
+        }
+    };
+
+    return {
+        records,
+        funds,
+        goals,
+        loading,
+        refreshing,
+        error,
+        submittingTransaction,
+        submittingVaultItem,
+        submittingTransfer,
+        activeTab,
+        setActiveTab,
+        transactionModalVisible,
+        setTransactionModalVisible,
+        closeTransactionModal,
+        vaultModalVisible,
+        transferModalVisible,
+        vaultEditing,
+        vaultFeedback,
+        calendarMonth,
+        setCalendarMonth,
+        selectedDate,
+        setSelectedDate,
+        transactionForm,
+        transactionErrors,
+        setTransactionForm,
+        updateTransactionForm,
+        updateTransactionAmount,
+        updateTransactionDate,
+        vaultForm,
+        vaultErrors,
+        setVaultForm,
+        updateVaultForm,
+        updateVaultTarget,
+        updateVaultDeadline,
+        transferState,
+        setTransferState,
+        transferAmount,
+        setTransferAmount,
+        updateTransferAmount,
+        transactionSearch,
+        setTransactionSearch,
+        transactionTypeFilter,
+        setTransactionTypeFilter,
+        transactionCategoryFilter,
+        setTransactionCategoryFilter,
+        transactionSortMode,
+        setTransactionSortMode,
+        transactionCategoryOptions,
+        filteredTransactions,
+        stats,
+        budgetStats,
+        categoryData,
+        dailyTrend,
+        dailyMap,
+        selectedDay,
+        daysInMonth,
+        blankDays,
+        maxTrendAmount,
+        walletBalance,
+        onRefresh,
+        openTransactionModal,
+        submitTransaction,
+        deleteTransaction,
+        openVaultModal,
+        openVaultEditModal,
+        closeVaultModal,
+        submitVaultItem,
+        deleteVaultItem,
+        openTransferModal,
+        closeTransferModal,
+        submitTransfer,
+    };
+};

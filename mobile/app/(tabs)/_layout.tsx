@@ -19,18 +19,7 @@ export default function TabLayout() {
           fontSize: typography.sizes.xs,
           fontWeight: typography.weights.medium,
         },
-        headerStyle: {
-          backgroundColor: colors.surface,
-          elevation: 0,
-          shadowOpacity: 0,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.borderLight,
-        },
-        headerTitleStyle: {
-          color: colors.textPrimary,
-          fontSize: typography.sizes.lg,
-          fontWeight: typography.weights.semibold,
-        },
+        headerShown: false,
       }}>
       <Tabs.Screen
         name="index"

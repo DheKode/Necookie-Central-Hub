@@ -1,21 +1,26 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, radius, shadows } from '../../theme';
-import { Card, SectionHeader, FAB } from '../../components/ui';
+import { useRouter } from 'expo-router';
+import { colors, spacing } from '../../theme';
+import { ActionGroup, Button, Card, EmptyState, ErrorState, FAB, ListRow, LoadingState, MetricCard, Screen, ScreenContent, ScreenHeader, ScreenSection, SectionHeader, screenLayout } from '../../components/ui';
 import { dataService } from '../../src/services/dataService';
 import { useAuth } from '../../src/hooks/useAuth';
+import { useRefreshOnFocus } from '../../src/hooks/useRefreshOnFocus';
 import { format } from 'date-fns';
 
 export default function DashboardScreen() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
+  const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
   const [nextTask, setNextTask] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
+      setError(null);
       const [historyData, tasksData] = await Promise.all([
         dataService.fetchUnifiedHistory(5),
         dataService.fetchTasks()
@@ -26,19 +31,34 @@ export default function DashboardScreen() {
       setNextTask(incompleteTask || null);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      setError('Dashboard data could not be loaded.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  useEffect(() => {
+  useRefreshOnFocus(() => {
     fetchData();
-  }, []);
+  });
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchData();
+  };
+
+  const handleSignOut = () => {
+    Alert.alert('Sign out', 'You will need to sign in again before you can access synced data on this device.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign out',
+        style: 'destructive',
+        onPress: async () => {
+          await signOut();
+          router.replace('/login');
+        },
+      },
+    ]);
   };
 
   const getTimeGreeting = () => {
@@ -49,202 +69,115 @@ export default function DashboardScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-        }
-      >
-        <View style={styles.header}>
-          <Text style={styles.greeting}>{getTimeGreeting()}, {user?.email?.split('@')[0] || 'Friend'}</Text>
-          <Text style={styles.date}>{format(new Date(), 'EEEE, MMMM do')}</Text>
-        </View>
-
-        <SectionHeader title="Your Focus" />
-        {nextTask ? (
-          <Card style={styles.taskCard}>
-            <View style={styles.taskIcon}>
-              <Ionicons name="star" size={20} color={colors.primary} />
-            </View>
-            <View style={styles.taskInfo}>
-              <Text style={styles.taskTitle}>{nextTask.title}</Text>
-              <Text style={styles.taskSubtitle}>Next on your list</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
-          </Card>
-        ) : (
-          <Card style={styles.emptyCard}>
-            <Text style={styles.emptyText}>All caught up! Time to relax?</Text>
-          </Card>
-        )}
-
-        <SectionHeader title="Recent Activity" />
-        <View style={styles.historyList}>
-          {history.length > 0 ? (
-            history.map((item, index) => (
-              <View key={item.id || index} style={styles.historyItem}>
-                <View style={[styles.historyDot, { backgroundColor: item.color || colors.secondaryLight }]} />
-                <View style={styles.historyContent}>
-                  <Text style={styles.historyText}>{item.activity_name || item.description || 'Activity logged'}</Text>
-                  <Text style={styles.historyTime}>{format(new Date(item.timestamp || item.created_at), 'h:mm a')}</Text>
+    <Screen>
+      <ScreenHeader
+        eyebrow="Overview"
+        title={`${getTimeGreeting()}, ${user?.email?.split('@')[0] || 'Friend'}`}
+        subtitle={format(new Date(), 'EEEE, MMMM do')}
+        right={<Button label="Sign out" variant="ghost" size="sm" onPress={handleSignOut} />}
+      />
+      <ScreenContent>
+        <ScrollView
+            contentContainerStyle={screenLayout.scrollContent}
+            refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+            }
+            showsVerticalScrollIndicator={false}
+        >
+            <ScreenSection>
+                <View style={styles.metricGrid}>
+                    <MetricCard icon="time-outline" label="Recent entries" value={`${history.length}`} tone="secondary" style={styles.metric} />
+                    <MetricCard icon="checkbox-outline" label="Open tasks" value={nextTask ? '1' : '0'} tone="primary" style={styles.metric} />
                 </View>
-              </View>
-            ))
-          ) : (
-            <Text style={styles.emptyHistory}>No recent activity yet.</Text>
-          )}
-        </View>
+            </ScreenSection>
 
-        <SectionHeader title="Quick Actions" />
-        <View style={styles.quickActions}>
-          <TouchableOpacity style={styles.actionBtn}>
-            <View style={[styles.actionIcon, { backgroundColor: '#E8EFEA' }]}>
-              <Ionicons name="checkbox-outline" size={24} color={colors.primary} />
-            </View>
-            <Text style={styles.actionLabel}>Add Task</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn}>
-            <View style={[styles.actionIcon, { backgroundColor: '#E6EDF2' }]}>
-              <Ionicons name="book-outline" size={24} color={colors.secondary} />
-            </View>
-            <Text style={styles.actionLabel}>Daily Journal</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn}>
-            <View style={[styles.actionIcon, { backgroundColor: '#FDF5EC' }]}>
-              <Ionicons name="wallet-outline" size={24} color={colors.warning} />
-            </View>
-            <Text style={styles.actionLabel}>Log Cash</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+            <ScreenSection>
+                <SectionHeader
+                    eyebrow="Priority"
+                    title="Your focus"
+                    description="Keep the next useful step visible without leaving the dashboard."
+                />
+                {loading ? (
+                    <LoadingState title="Loading focus" description="Finding the next thing that deserves your attention." />
+                ) : error ? (
+                    <ErrorState description={error} onActionPress={fetchData} />
+                ) : nextTask ? (
+                    <Card variant="outline">
+                        <ListRow
+                            icon="star"
+                            title={nextTask.title}
+                            subtitle="Next on your list"
+                            meta={nextTask.due_date ? format(new Date(nextTask.due_date), 'MMM d') : undefined}
+                            trailing={<Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />}
+                            onPress={() => router.push('/todo')}
+                        />
+                    </Card>
+                ) : (
+                    <EmptyState title="All caught up" description="Your task list is clear. Use the downtime well." iconName="sparkles-outline" />
+                )}
+            </ScreenSection>
 
-      <FAB iconName="add" onPress={() => console.log('Quick add pressed')} />
-    </View>
+            <ScreenSection>
+                <SectionHeader
+                    eyebrow="Timeline"
+                    title="Recent activity"
+                    description="A compact read on the latest movement across the app."
+                />
+                {loading ? (
+                    <LoadingState title="Loading timeline" description="Assembling your latest activity across the app." />
+                ) : history.length > 0 ? (
+                    <Card variant="outline">
+                        {history.map((item, index) => (
+                            <View key={item.id || index}>
+                                <ListRow
+                                    icon="ellipse"
+                                    iconColor={item.color || colors.secondary}
+                                    iconBackground={colors.surfaceLayered}
+                                    title={item.activity_name || item.description || 'Activity logged'}
+                                    meta={format(new Date(item.timestamp || item.created_at), 'h:mm a')}
+                                />
+                                {index < history.length - 1 ? <View style={styles.divider} /> : null}
+                            </View>
+                        ))}
+                    </Card>
+                ) : (
+                    <EmptyState title="No recent activity" description="Log something in any tab and it will appear here." iconName="time-outline" />
+                )}
+            </ScreenSection>
+
+            <ScreenSection>
+                <SectionHeader
+                    eyebrow="Shortcuts"
+                    title="Quick actions"
+                    description="Use the same launch points no matter which module you came from."
+                />
+                <ActionGroup
+                    actions={[
+                        { id: 'task', label: 'Open Tasks', description: 'Capture work', icon: 'checkbox-outline', onPress: () => router.push('/todo') },
+                        { id: 'journal', label: 'Write Journal', description: 'Reflect fast', icon: 'book-outline', tint: colors.secondary, background: colors.secondaryLight, onPress: () => router.push('/journal') },
+                        { id: 'finance', label: 'Finance Hub', description: 'Track money', icon: 'wallet-outline', tint: colors.warning, background: colors.warningLight, onPress: () => router.push('/finance') },
+                    ]}
+                />
+            </ScreenSection>
+        </ScrollView>
+      </ScreenContent>
+
+      <FAB iconName="add" onPress={() => router.push('/todo')} accessibilityLabel="Open tasks" />
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xxxl,
-  },
-  header: {
-    marginBottom: spacing.xl,
-  },
-  greeting: {
-    fontSize: typography.sizes.xl,
-    fontWeight: typography.weights.bold,
-    color: colors.textPrimary,
-  },
-  date: {
-    fontSize: typography.sizes.md,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
-  taskCard: {
+  metricGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    gap: spacing.sm,
   },
-  taskIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.md,
-    backgroundColor: colors.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.md,
-  },
-  taskInfo: {
+  metric: {
     flex: 1,
   },
-  taskTitle: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    color: colors.textPrimary,
-  },
-  taskSubtitle: {
-    fontSize: typography.sizes.sm,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  emptyCard: {
-    padding: spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderStyle: 'dashed',
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: 'transparent',
-    marginBottom: spacing.md,
-  },
-  emptyText: {
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-  },
-  historyList: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    ...shadows.soft,
-    marginBottom: spacing.md,
-  },
-  historyItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-  },
-  historyDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: spacing.md,
-  },
-  historyContent: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  historyText: {
-    fontSize: typography.sizes.sm,
-    color: colors.textPrimary,
-  },
-  historyTime: {
-    fontSize: typography.sizes.xs,
-    color: colors.textTertiary,
-  },
-  emptyHistory: {
-    textAlign: 'center',
-    color: colors.textTertiary,
-    paddingVertical: spacing.md,
-  },
-  quickActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: spacing.sm,
-  },
-  actionBtn: {
-    alignItems: 'center',
-    width: '30%',
-  },
-  actionIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: radius.lg,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  actionLabel: {
-    fontSize: typography.sizes.xs,
-    color: colors.textSecondary,
-    fontWeight: typography.weights.medium,
+  divider: {
+    height: 1,
+    backgroundColor: colors.borderLight,
+    marginLeft: 56,
   },
 });

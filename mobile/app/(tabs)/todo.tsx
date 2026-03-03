@@ -1,39 +1,37 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, View, Text, FlatList, RefreshControl, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, radius, shadows } from '../../theme';
-import { Card, SectionHeader, FAB, PillFilter, EmptyState } from '../../components/ui';
+import { colors, radius, spacing, typography } from '../../theme';
+import { Card, ErrorState, FAB, PillFilter, EmptyState, LoadingState, Screen, ScreenContent, ScreenHeader, ScreenSection, SectionHeader, screenLayout } from '../../components/ui';
 import { dataService } from '../../src/services/dataService';
+import { useRefreshOnFocus } from '../../src/hooks/useRefreshOnFocus';
 import { format } from 'date-fns';
 import * as Haptics from 'expo-haptics';
 
 export default function TodoScreen() {
     const [tasks, setTasks] = useState<any[]>([]);
-    const [projects, setProjects] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [selectedFilter, setSelectedFilter] = useState('All');
+    const [error, setError] = useState<string | null>(null);
 
     const fetchData = async () => {
         try {
-            const [tasksData, projectsData] = await Promise.all([
-                dataService.fetchTasks(),
-                dataService.fetchProjects()
-            ]);
+            setError(null);
+            const tasksData = await dataService.fetchTasks();
             setTasks(tasksData || []);
-            setProjects(projectsData || []);
         } catch (error: any) {
             console.error('Error fetching tasks:', error);
-            Alert.alert('Error', 'Failed to load tasks');
+            setError('Failed to load tasks.');
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
     };
 
-    useEffect(() => {
+    useRefreshOnFocus(() => {
         fetchData();
-    }, []);
+    });
 
     const onRefresh = () => {
         setRefreshing(true);
@@ -97,58 +95,62 @@ export default function TodoScreen() {
     );
 
     return (
-        <View style={styles.container}>
-            <View style={styles.filterContainer}>
-                <PillFilter
-                    options={[
-                        { id: 'All', label: 'All' },
-                        { id: 'Pending', label: 'Pending' },
-                        { id: 'Completed', label: 'Completed' },
-                    ]}
-                    selectedId={selectedFilter}
-                    onSelect={setSelectedFilter}
-                />
-            </View>
-
+        <Screen>
+            <ScreenHeader
+                eyebrow="Tasks"
+                title="Task flow"
+                subtitle="Capture, filter, and clear work with the same rhythm as the rest of the app."
+            />
+            <ScreenContent>
             <FlatList
                 data={filteredTasks}
                 renderItem={renderTask}
                 keyExtractor={item => item.id.toString()}
-                contentContainerStyle={styles.listContent}
+                contentContainerStyle={screenLayout.listContent}
+                showsVerticalScrollIndicator={false}
+                ListHeaderComponent={
+                    <ScreenSection>
+                        <SectionHeader
+                            eyebrow="Filter"
+                            title="Status"
+                            description="Keep pending and completed work in the same list rhythm."
+                        />
+                        <PillFilter
+                            options={[
+                                { id: 'All', label: 'All' },
+                                { id: 'Pending', label: 'Pending' },
+                                { id: 'Completed', label: 'Completed' },
+                            ]}
+                            selectedId={selectedFilter}
+                            onSelect={setSelectedFilter}
+                        />
+                    </ScreenSection>
+                }
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
                 }
                 ListEmptyComponent={
-                    !loading ? (
+                    loading ? (
+                        <LoadingState title="Loading tasks" description="Pulling your current task list into view." />
+                    ) : error ? (
+                        <ErrorState description={error} onActionPress={fetchData} />
+                    ) : (
                         <EmptyState
                             iconName="checkmark-circle-outline"
                             title={selectedFilter === 'All' ? "All clear" : "Nothing here"}
                             description={selectedFilter === 'All' ? "You've finished everything on your plate. Enjoy the peace!" : `You have no ${selectedFilter.toLowerCase()} tasks.`}
                         />
-                    ) : null
+                    )
                 }
             />
+            </ScreenContent>
 
             <FAB iconName="add" onPress={() => console.log('Add task pressed')} accessibilityLabel="Add robust task" />
-        </View>
+        </Screen>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: colors.background,
-    },
-    filterContainer: {
-        paddingVertical: spacing.sm,
-        backgroundColor: colors.surface,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.borderLight,
-    },
-    listContent: {
-        padding: spacing.md,
-        paddingBottom: spacing.xxxl,
-    },
     taskCard: {
         flexDirection: 'row',
         alignItems: 'center',
