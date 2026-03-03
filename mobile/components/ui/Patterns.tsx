@@ -1,6 +1,6 @@
 import React from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { StyleProp, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
+import { StyleProp, StyleSheet, Text, TouchableOpacity, View, ViewStyle, useWindowDimensions } from 'react-native';
 import { colors, radius, spacing, typography } from '../../theme';
 import { Card } from './Card';
 
@@ -105,11 +105,14 @@ export function MetricCard({ icon, label, value, tone = 'primary', style }: Metr
 }
 
 export function ActionGroup({ actions, style }: ActionGroupProps) {
+    const { width } = useWindowDimensions();
+    const isCompact = width < 380;
+
     return (
         <Card variant="outline" style={[styles.actionCard, style]}>
             <View style={styles.actionOverlay}>
                 {actions.map((action) => (
-                    <TouchableOpacity key={action.id} style={styles.actionItem} onPress={action.onPress} activeOpacity={0.85}>
+                    <TouchableOpacity key={action.id} style={[styles.actionItem, isCompact && styles.actionItemCompact]} onPress={action.onPress} activeOpacity={0.85}>
                         <View style={[styles.actionIcon, { backgroundColor: action.background ?? colors.primaryLight }]}>
                             <Ionicons name={action.icon} size={20} color={action.tint ?? colors.primary} />
                         </View>
@@ -209,6 +212,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: spacing.sm,
         paddingVertical: spacing.sm,
+    },
+    actionItemCompact: {
+        minWidth: '47%',
     },
     actionIcon: {
         width: 52,

@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Alert, FlatList, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors, spacing, typography } from '../../theme';
 import { Button, Card, EmptyState, ErrorState, FAB, LoadingState, Modal, PillFilter, Screen, ScreenContent, ScreenHeader, ScreenSection, SectionHeader, screenLayout } from '../../components/ui';
 import { dataService } from '../../src/services/dataService';
+import { useRefreshOnFocus } from '../../src/hooks/useRefreshOnFocus';
 import { format } from 'date-fns';
 import * as Haptics from 'expo-haptics';
 
@@ -37,9 +38,9 @@ export default function JournalScreen() {
         }
     };
 
-    useEffect(() => {
+    useRefreshOnFocus(() => {
         fetchData();
-    }, []);
+    });
 
     const onRefresh = () => {
         setRefreshing(true);

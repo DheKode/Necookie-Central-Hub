@@ -2,7 +2,7 @@ import { ThemeProvider, DefaultTheme } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import 'react-native-reanimated';
 
 import { colors } from '../theme';
@@ -36,6 +36,7 @@ export default function RootLayout() {
   const { isAuthenticated, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const inAuthGroup = useMemo(() => segments[0] === '(auth)', [segments]);
 
   useEffect(() => {
     if (error) throw error;
@@ -50,16 +51,12 @@ export default function RootLayout() {
   useEffect(() => {
     if (loading || !loaded) return;
 
-    const inAuthGroup = (segments[0] as string) === '(auth)';
-
     if (!isAuthenticated && !inAuthGroup) {
-      // Redirect to login if not authenticated and not in auth group
-      router.replace('/(auth)/login');
+      router.replace('/login');
     } else if (isAuthenticated && inAuthGroup) {
-      // Redirect to home if authenticated and in auth group
-      router.replace('/(tabs)');
+      router.replace('/');
     }
-  }, [isAuthenticated, loading, segments, loaded]);
+  }, [inAuthGroup, isAuthenticated, loaded, loading, router]);
 
   if (!loaded || loading) return null;
 
@@ -68,7 +65,6 @@ export default function RootLayout() {
       <Stack>
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
       </Stack>
     </ThemeProvider>
   );

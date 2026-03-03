@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, View, Text, FlatList, RefreshControl } from 'react-native';
 import { colors, spacing, typography } from '../../theme';
 import { Card, EmptyState, ErrorState, ListRow, LoadingState, Screen, ScreenContent, ScreenHeader, SectionHeader, screenLayout } from '../../components/ui';
 import { dataService } from '../../src/services/dataService';
+import { useRefreshOnFocus } from '../../src/hooks/useRefreshOnFocus';
 import { format, isSameDay } from 'date-fns';
 
 export default function HistoryScreen() {
@@ -25,9 +26,9 @@ export default function HistoryScreen() {
         }
     };
 
-    useEffect(() => {
+    useRefreshOnFocus(() => {
         fetchData();
-    }, []);
+    });
 
     const onRefresh = () => {
         setRefreshing(true);

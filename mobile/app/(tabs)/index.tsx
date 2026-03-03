@@ -1,14 +1,17 @@
-import React, { useEffect, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { colors, spacing } from '../../theme';
-import { ActionGroup, Card, EmptyState, ErrorState, FAB, ListRow, LoadingState, MetricCard, Screen, ScreenContent, ScreenHeader, ScreenSection, SectionHeader, screenLayout } from '../../components/ui';
+import { ActionGroup, Button, Card, EmptyState, ErrorState, FAB, ListRow, LoadingState, MetricCard, Screen, ScreenContent, ScreenHeader, ScreenSection, SectionHeader, screenLayout } from '../../components/ui';
 import { dataService } from '../../src/services/dataService';
 import { useAuth } from '../../src/hooks/useAuth';
+import { useRefreshOnFocus } from '../../src/hooks/useRefreshOnFocus';
 import { format } from 'date-fns';
 
 export default function DashboardScreen() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
+  const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
   const [nextTask, setNextTask] = useState<any>(null);
@@ -35,13 +38,27 @@ export default function DashboardScreen() {
     }
   };
 
-  useEffect(() => {
+  useRefreshOnFocus(() => {
     fetchData();
-  }, []);
+  });
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchData();
+  };
+
+  const handleSignOut = () => {
+    Alert.alert('Sign out', 'You will need to sign in again before you can access synced data on this device.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign out',
+        style: 'destructive',
+        onPress: async () => {
+          await signOut();
+          router.replace('/login');
+        },
+      },
+    ]);
   };
 
   const getTimeGreeting = () => {
@@ -57,6 +74,7 @@ export default function DashboardScreen() {
         eyebrow="Overview"
         title={`${getTimeGreeting()}, ${user?.email?.split('@')[0] || 'Friend'}`}
         subtitle={format(new Date(), 'EEEE, MMMM do')}
+        right={<Button label="Sign out" variant="ghost" size="sm" onPress={handleSignOut} />}
       />
       <ScreenContent>
         <ScrollView
@@ -91,6 +109,7 @@ export default function DashboardScreen() {
                             subtitle="Next on your list"
                             meta={nextTask.due_date ? format(new Date(nextTask.due_date), 'MMM d') : undefined}
                             trailing={<Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />}
+                            onPress={() => router.push('/todo')}
                         />
                     </Card>
                 ) : (
@@ -134,16 +153,16 @@ export default function DashboardScreen() {
                 />
                 <ActionGroup
                     actions={[
-                        { id: 'task', label: 'Add Task', description: 'Capture work', icon: 'checkbox-outline', onPress: () => console.log('Add task pressed') },
-                        { id: 'journal', label: 'Daily Journal', description: 'Reflect fast', icon: 'book-outline', tint: colors.secondary, background: colors.secondaryLight, onPress: () => console.log('New journal entry pressed') },
-                        { id: 'finance', label: 'Log Cash', description: 'Track money', icon: 'wallet-outline', tint: colors.warning, background: colors.warningLight, onPress: () => console.log('Add transaction pressed') },
+                        { id: 'task', label: 'Open Tasks', description: 'Capture work', icon: 'checkbox-outline', onPress: () => router.push('/todo') },
+                        { id: 'journal', label: 'Write Journal', description: 'Reflect fast', icon: 'book-outline', tint: colors.secondary, background: colors.secondaryLight, onPress: () => router.push('/journal') },
+                        { id: 'finance', label: 'Finance Hub', description: 'Track money', icon: 'wallet-outline', tint: colors.warning, background: colors.warningLight, onPress: () => router.push('/finance') },
                     ]}
                 />
             </ScreenSection>
         </ScrollView>
       </ScreenContent>
 
-      <FAB iconName="add" onPress={() => console.log('Quick add pressed')} />
+      <FAB iconName="add" onPress={() => router.push('/todo')} accessibilityLabel="Open tasks" />
     </Screen>
   );
 }

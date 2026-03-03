@@ -9,6 +9,7 @@ import {
     startOfMonth,
 } from 'date-fns';
 import { dataService } from '../../services/dataService';
+import { useRefreshOnFocus } from '../../hooks/useRefreshOnFocus';
 import { CATEGORIES } from './constants';
 import {
     buildBudgetStats,
@@ -130,9 +131,9 @@ export const useFinanceHub = () => {
         }
     };
 
-    useEffect(() => {
+    useRefreshOnFocus(() => {
         loadData();
-    }, []);
+    });
 
     const onRefresh = () => {
         setRefreshing(true);
@@ -553,19 +554,27 @@ export const useFinanceHub = () => {
             };
 
         try {
-            const updatePromise = transferState.itemType === 'fund'
-                ? dataService.updateFund(transferState.itemId, { current_amount: nextAmount })
-                : dataService.updateGoal(transferState.itemId, { current_amount: nextAmount });
-            const financePromise = financePayload
-                ? dataService.addFinanceRecord(financePayload)
-                : Promise.resolve({ data: null, error: null });
-            const [updateResult, financeResult] = await Promise.all([updatePromise, financePromise]);
+            const updateResult = transferState.itemType === 'fund'
+                ? await dataService.updateFund(transferState.itemId, { current_amount: nextAmount })
+                : await dataService.updateGoal(transferState.itemId, { current_amount: nextAmount });
 
             if (updateResult.error) {
                 throw updateResult.error;
             }
 
+            const financeResult = financePayload
+                ? await dataService.addFinanceRecord(financePayload)
+                : { data: null, error: null };
+
             if (financeResult.error) {
+                const rollbackResult = transferState.itemType === 'fund'
+                    ? await dataService.updateFund(transferState.itemId, { current_amount: transferState.currentAmount })
+                    : await dataService.updateGoal(transferState.itemId, { current_amount: transferState.currentAmount });
+
+                if (rollbackResult.error) {
+                    console.error('Failed to roll back vault transfer after finance write error:', rollbackResult.error);
+                }
+
                 throw financeResult.error;
             }
 

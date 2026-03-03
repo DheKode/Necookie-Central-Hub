@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, ViewProps, StyleProp, ViewStyle } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { colors, spacing, radius, shadows } from '../../theme';
 
 interface CardProps extends ViewProps {
@@ -10,7 +11,8 @@ interface CardProps extends ViewProps {
 
 export function Card({ children, style, variant = 'elevated', ...rest }: CardProps) {
     return (
-        <View
+        <Animated.View
+            entering={FadeInDown.duration(260)}
             style={[
                 styles.base,
                 variant === 'elevated' && styles.elevated,
@@ -21,7 +23,7 @@ export function Card({ children, style, variant = 'elevated', ...rest }: CardPro
             {...rest}
         >
             {children}
-        </View>
+        </Animated.View>
     );
 }
 
@@ -30,6 +32,8 @@ const styles = StyleSheet.create({
         borderRadius: radius.lg,
         padding: spacing.lg,
         backgroundColor: colors.surface,
+        borderWidth: 1,
+        borderColor: 'rgba(234, 230, 223, 0.7)',
     },
     elevated: {
         ...shadows.medium,

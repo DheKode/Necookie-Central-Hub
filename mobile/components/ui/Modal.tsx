@@ -1,6 +1,6 @@
 import React from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Modal as RNModal, ModalProps, ScrollView, StyleProp, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View, ViewStyle } from 'react-native';
+import { KeyboardAvoidingView, Modal as RNModal, ModalProps, Platform, ScrollView, StyleProp, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View, ViewStyle } from 'react-native';
 import { colors, radius, spacing, typography } from '../../theme';
 
 interface CozyModalProps extends ModalProps {
@@ -44,22 +44,27 @@ export function Modal({
             <TouchableWithoutFeedback onPress={onClose}>
                 <View style={[styles.overlay, variant === 'sheet' && styles.sheetOverlay]}>
                     <TouchableWithoutFeedback>
-                        <View style={[styles.content, variant === 'sheet' ? styles.sheetContent : styles.centerContent, contentStyle]}>
-                            {variant === 'sheet' ? <View style={styles.handle} /> : null}
-                            {(title || subtitle) ? (
-                                <View style={styles.header}>
-                                    <View style={styles.headerCopy}>
-                                        {title ? <Text style={styles.title}>{title}</Text> : null}
-                                        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+                        <KeyboardAvoidingView
+                            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                            style={styles.keyboardAvoider}
+                        >
+                            <View style={[styles.content, variant === 'sheet' ? styles.sheetContent : styles.centerContent, contentStyle]}>
+                                {variant === 'sheet' ? <View style={styles.handle} /> : null}
+                                {(title || subtitle) ? (
+                                    <View style={styles.header}>
+                                        <View style={styles.headerCopy}>
+                                            {title ? <Text style={styles.title}>{title}</Text> : null}
+                                            {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+                                        </View>
+                                        <TouchableOpacity style={styles.closeButton} onPress={onClose} hitSlop={8}>
+                                            <Ionicons name="close" size={18} color={colors.textSecondary} />
+                                        </TouchableOpacity>
                                     </View>
-                                    <TouchableOpacity style={styles.closeButton} onPress={onClose} hitSlop={8}>
-                                        <Ionicons name="close" size={18} color={colors.textSecondary} />
-                                    </TouchableOpacity>
-                                </View>
-                            ) : null}
-                            {body}
-                            {footer ? <View style={styles.footer}>{footer}</View> : null}
-                        </View>
+                                ) : null}
+                                {body}
+                                {footer ? <View style={styles.footer}>{footer}</View> : null}
+                            </View>
+                        </KeyboardAvoidingView>
                     </TouchableWithoutFeedback>
                 </View>
             </TouchableWithoutFeedback>
@@ -79,6 +84,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: 0,
         paddingTop: spacing.xxxl,
         paddingBottom: 0,
+    },
+    keyboardAvoider: {
+        width: '100%',
     },
     content: {
         backgroundColor: colors.surface,

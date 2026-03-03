@@ -1,6 +1,7 @@
 import React from 'react';
-import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { StyleProp, StyleSheet, Text, View, ViewStyle, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { colors, spacing, typography } from '../../theme';
 
 type ScreenProps = {
@@ -28,21 +29,25 @@ type ScreenSectionProps = {
 export function Screen({ children, style }: ScreenProps) {
     return (
         <SafeAreaView edges={['top']} style={[styles.screen, style]}>
+            <View pointerEvents="none" style={styles.backgroundGlowTop} />
+            <View pointerEvents="none" style={styles.backgroundGlowBottom} />
             {children}
         </SafeAreaView>
     );
 }
 
 export function ScreenHeader({ eyebrow, title, subtitle, right }: ScreenHeaderProps) {
+    const { width } = useWindowDimensions();
+
     return (
-        <View style={styles.header}>
+        <Animated.View entering={FadeInDown.duration(350)} style={[styles.header, width < 380 && styles.headerCompact]}>
             <View style={styles.headerCopy}>
                 {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
-                <Text style={styles.title}>{title}</Text>
+                <Text style={[styles.title, width < 380 && styles.titleCompact]}>{title}</Text>
                 {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
             </View>
             {right ? <View style={styles.headerRight}>{right}</View> : null}
-        </View>
+        </Animated.View>
     );
 }
 
@@ -51,7 +56,7 @@ export function ScreenContent({ children, style }: ScreenContentProps) {
 }
 
 export function ScreenSection({ children, style }: ScreenSectionProps) {
-    return <View style={[styles.section, style]}>{children}</View>;
+    return <Animated.View entering={FadeIn.duration(280)} style={[styles.section, style]}>{children}</Animated.View>;
 }
 
 export const screenLayout = StyleSheet.create({
@@ -78,6 +83,26 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.background,
     },
+    backgroundGlowTop: {
+        position: 'absolute',
+        top: -72,
+        right: -32,
+        width: 220,
+        height: 220,
+        borderRadius: 999,
+        backgroundColor: colors.primaryLight,
+        opacity: 0.72,
+    },
+    backgroundGlowBottom: {
+        position: 'absolute',
+        bottom: 64,
+        left: -60,
+        width: 180,
+        height: 180,
+        borderRadius: 999,
+        backgroundColor: colors.secondaryLight,
+        opacity: 0.48,
+    },
     header: {
         paddingHorizontal: spacing.lg,
         paddingTop: spacing.sm,
@@ -89,6 +114,9 @@ const styles = StyleSheet.create({
         alignItems: 'flex-end',
         justifyContent: 'space-between',
         gap: spacing.md,
+    },
+    headerCompact: {
+        paddingHorizontal: spacing.md,
     },
     headerCopy: {
         flex: 1,
@@ -107,6 +135,10 @@ const styles = StyleSheet.create({
         lineHeight: typography.lineHeights.xxl,
         fontWeight: typography.weights.bold,
         color: colors.textPrimary,
+    },
+    titleCompact: {
+        fontSize: typography.sizes.xl,
+        lineHeight: typography.lineHeights.xl,
     },
     subtitle: {
         fontSize: typography.sizes.sm,

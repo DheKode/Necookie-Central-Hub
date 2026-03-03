@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, View, Text, FlatList, RefreshControl, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '../../theme';
 import { Card, ErrorState, FAB, PillFilter, EmptyState, LoadingState, Screen, ScreenContent, ScreenHeader, ScreenSection, SectionHeader, screenLayout } from '../../components/ui';
 import { dataService } from '../../src/services/dataService';
+import { useRefreshOnFocus } from '../../src/hooks/useRefreshOnFocus';
 import { format } from 'date-fns';
 import * as Haptics from 'expo-haptics';
 
@@ -28,9 +29,9 @@ export default function TodoScreen() {
         }
     };
 
-    useEffect(() => {
+    useRefreshOnFocus(() => {
         fetchData();
-    }, []);
+    });
 
     const onRefresh = () => {
         setRefreshing(true);
