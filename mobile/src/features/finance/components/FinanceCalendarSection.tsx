@@ -1,7 +1,7 @@
 import React from 'react';
 import { addMonths, format, isSameDay } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Card, SectionHeader } from '../../../../components/ui';
 import { colors, radius, spacing, typography } from '../../../../theme';
 import { currency, toAmount } from '../utils';
@@ -55,25 +55,48 @@ export function FinanceCalendarSection({
                         const isSelected = isSameDay(day, selectedDate);
                         const isToday = isSameDay(day, new Date());
                         const net = (dayData?.income ?? 0) - (dayData?.expense ?? 0);
+                        const hasActivity = Boolean(dayData?.transactions.length);
+                        const hasIncome = Boolean(dayData?.income);
+                        const hasExpense = Boolean(dayData?.expense);
 
                         return (
-                            <TouchableOpacity
+                            <Pressable
                                 key={key}
-                                style={[styles.day, isSelected && styles.daySelected]}
+                                style={({ pressed }) => [
+                                    styles.day,
+                                    hasActivity && styles.dayActive,
+                                    isSelected && styles.daySelected,
+                                    isToday && styles.dayTodayCard,
+                                    pressed && styles.dayPressed,
+                                ]}
                                 onPress={() => setSelectedDate(day)}
-                                activeOpacity={0.8}
                             >
-                                <Text style={[styles.dayText, isToday && styles.dayToday]}>{format(day, 'd')}</Text>
+                                <View style={styles.dayHeader}>
+                                    <Text style={[styles.dayText, isToday && styles.dayToday]}>{format(day, 'd')}</Text>
+                                    {hasActivity ? (
+                                        <View style={[styles.activityBadge, isSelected && styles.activityBadgeSelected]}>
+                                            <Text style={[styles.activityBadgeText, isSelected && styles.activityBadgeTextSelected]}>
+                                                {dayData?.transactions.length}
+                                            </Text>
+                                        </View>
+                                    ) : null}
+                                </View>
                                 <View style={styles.dots}>
-                                    {dayData?.income ? <View style={[styles.dot, { backgroundColor: colors.success }]} /> : null}
-                                    {dayData?.expense ? <View style={[styles.dot, { backgroundColor: colors.danger }]} /> : null}
+                                    {hasIncome ? <View style={[styles.dot, { backgroundColor: colors.success }]} /> : null}
+                                    {hasExpense ? <View style={[styles.dot, { backgroundColor: colors.danger }]} /> : null}
                                 </View>
                                 {dayData ? (
-                                    <Text style={[styles.net, { color: net >= 0 ? colors.success : colors.danger }]}>
+                                    <Text style={[
+                                        styles.net,
+                                        {
+                                            color: net >= 0 ? colors.success : colors.danger,
+                                            backgroundColor: isSelected ? colors.surface : net >= 0 ? colors.primaryLight : colors.dangerLight,
+                                        },
+                                    ]}>
                                         {net >= 0 ? '+' : '-'}{Math.abs(Math.round(net))}
                                     </Text>
                                 ) : null}
-                            </TouchableOpacity>
+                            </Pressable>
                         );
                     })}
                 </View>
@@ -81,6 +104,27 @@ export function FinanceCalendarSection({
 
             <Card variant="outline">
                 <SectionHeader title={`Activity for ${format(selectedDate, 'MMMM d')}`} />
+                {selectedDay ? (
+                    <View style={styles.summaryRow}>
+                        <View style={[styles.summaryChip, styles.summaryChipIncome]}>
+                            <Text style={styles.summaryLabel}>In</Text>
+                            <Text style={[styles.summaryValue, { color: colors.success }]}>{currency(selectedDay.income)}</Text>
+                        </View>
+                        <View style={[styles.summaryChip, styles.summaryChipExpense]}>
+                            <Text style={styles.summaryLabel}>Out</Text>
+                            <Text style={[styles.summaryValue, { color: colors.danger }]}>{currency(selectedDay.expense)}</Text>
+                        </View>
+                        <View style={styles.summaryChip}>
+                            <Text style={styles.summaryLabel}>Net</Text>
+                            <Text style={[
+                                styles.summaryValue,
+                                { color: selectedDay.income - selectedDay.expense >= 0 ? colors.success : colors.danger },
+                            ]}>
+                                {currency(selectedDay.income - selectedDay.expense)}
+                            </Text>
+                        </View>
+                    </View>
+                ) : null}
                 {!selectedDay?.transactions.length ? (
                     <Text style={styles.emptyText}>No transactions recorded for this date.</Text>
                 ) : (
@@ -158,6 +202,11 @@ const styles = StyleSheet.create({
     blank: {
         width: '13%',
     },
+    dayHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
     day: {
         width: '13%',
         minHeight: 74,
@@ -168,9 +217,19 @@ const styles = StyleSheet.create({
         padding: spacing.xs,
         justifyContent: 'space-between',
     },
+    dayActive: {
+        borderColor: colors.secondary,
+    },
     daySelected: {
         borderColor: colors.primary,
         backgroundColor: colors.primaryLight,
+    },
+    dayTodayCard: {
+        borderStyle: 'dashed',
+    },
+    dayPressed: {
+        transform: [{ scale: 0.98 }],
+        opacity: 0.92,
     },
     dayText: {
         fontSize: typography.sizes.xs,
@@ -185,6 +244,25 @@ const styles = StyleSheet.create({
         gap: 3,
         alignSelf: 'center',
     },
+    activityBadge: {
+        minWidth: 18,
+        paddingHorizontal: 5,
+        paddingVertical: 2,
+        borderRadius: radius.pill,
+        backgroundColor: colors.surfaceLayered,
+        alignItems: 'center',
+    },
+    activityBadgeSelected: {
+        backgroundColor: colors.surface,
+    },
+    activityBadgeText: {
+        fontSize: 10,
+        color: colors.textSecondary,
+        fontWeight: typography.weights.bold,
+    },
+    activityBadgeTextSelected: {
+        color: colors.primary,
+    },
     dot: {
         width: 6,
         height: 6,
@@ -193,6 +271,36 @@ const styles = StyleSheet.create({
     net: {
         fontSize: 10,
         textAlign: 'center',
+        fontWeight: typography.weights.bold,
+        paddingVertical: 3,
+        borderRadius: radius.sm,
+    },
+    summaryRow: {
+        flexDirection: 'row',
+        gap: spacing.sm,
+        marginBottom: spacing.md,
+    },
+    summaryChip: {
+        flex: 1,
+        borderRadius: radius.md,
+        padding: spacing.sm,
+        backgroundColor: colors.surfaceLayered,
+        gap: 2,
+    },
+    summaryChipIncome: {
+        backgroundColor: colors.primaryLight,
+    },
+    summaryChipExpense: {
+        backgroundColor: colors.dangerLight,
+    },
+    summaryLabel: {
+        fontSize: typography.sizes.xs,
+        color: colors.textSecondary,
+        textTransform: 'uppercase',
+        letterSpacing: 0.4,
+    },
+    summaryValue: {
+        fontSize: typography.sizes.sm,
         fontWeight: typography.weights.bold,
     },
     emptyText: {

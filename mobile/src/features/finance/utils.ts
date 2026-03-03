@@ -1,6 +1,8 @@
 import {
     endOfMonth,
     format,
+    isAfter,
+    isValid,
     isSameDay,
     isSameWeek,
     isWithinInterval,
@@ -23,6 +25,45 @@ export const currency = (value: number) => `$${Math.round(value).toLocaleString(
 export const toAmount = (value: number | string | null | undefined) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
+};
+
+export const sanitizeAmountInput = (value: string) => {
+    const normalized = value.replace(/[^0-9.]/g, '');
+    const [whole = '', ...decimalParts] = normalized.split('.');
+    const decimals = decimalParts.join('').slice(0, 2);
+
+    if (normalized.startsWith('.')) {
+        return decimals ? `0.${decimals}` : '0.';
+    }
+
+    if (decimalParts.length === 0) {
+        return whole;
+    }
+
+    return `${whole}.${decimals}`;
+};
+
+export const sanitizeDateInput = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 8);
+
+    if (digits.length <= 4) {
+        return digits;
+    }
+
+    if (digits.length <= 6) {
+        return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+    }
+
+    return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;
+};
+
+export const isValidFinanceDate = (value: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return false;
+    }
+
+    const parsed = parseISO(value);
+    return isValid(parsed) && format(parsed, 'yyyy-MM-dd') === value && !isAfter(parsed, new Date());
 };
 
 export const normalizeFundRecord = (record: any): FundRecord => ({

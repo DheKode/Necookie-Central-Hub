@@ -5,6 +5,7 @@ import {
     endOfMonth,
     format,
     getDay,
+    isSameMonth,
     startOfMonth,
 } from 'date-fns';
 import { dataService } from '../../services/dataService';
@@ -15,17 +16,24 @@ import {
     buildDailyMap,
     buildDailyTrend,
     buildStats,
+    isValidFinanceDate,
     normalizeFundRecord,
     normalizeGoalRecord,
+    sanitizeAmountInput,
+    sanitizeDateInput,
     toAmount,
 } from './utils';
 import type {
     FinanceRecord,
     FundRecord,
     GoalRecord,
+    TransactionFormErrors,
     TransactionFormState,
+    TransactionSortMode,
+    TransactionTypeFilter,
     VaultEditingState,
     VaultFeedback,
+    VaultFormErrors,
     VaultFormState,
     VaultTransferState,
 } from './types';
@@ -38,6 +46,8 @@ const createTransactionForm = (type: 'income' | 'expense'): TransactionFormState
     date: format(new Date(), 'yyyy-MM-dd'),
 });
 
+const defaultTransactionErrors = (): TransactionFormErrors => ({});
+
 const createVaultForm = (type: 'fund' | 'goal'): VaultFormState => ({
     type,
     name: '',
@@ -45,6 +55,8 @@ const createVaultForm = (type: 'fund' | 'goal'): VaultFormState => ({
     deadline: '',
     isEmergency: false,
 });
+
+const defaultVaultErrors = (): VaultFormErrors => ({});
 
 const defaultVaultEditing = (): VaultEditingState => ({
     mode: 'create',
@@ -80,8 +92,14 @@ export const useFinanceHub = () => {
     const [calendarMonth, setCalendarMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [transactionForm, setTransactionForm] = useState<TransactionFormState>(createTransactionForm('expense'));
+    const [transactionErrors, setTransactionErrors] = useState<TransactionFormErrors>(defaultTransactionErrors);
     const [vaultForm, setVaultForm] = useState<VaultFormState>(createVaultForm('fund'));
+    const [vaultErrors, setVaultErrors] = useState<VaultFormErrors>(defaultVaultErrors);
     const [transferAmount, setTransferAmount] = useState('');
+    const [transactionSearch, setTransactionSearch] = useState('');
+    const [transactionTypeFilter, setTransactionTypeFilter] = useState<TransactionTypeFilter>('all');
+    const [transactionCategoryFilter, setTransactionCategoryFilter] = useState('all');
+    const [transactionSortMode, setTransactionSortMode] = useState<TransactionSortMode>('newest');
 
     const loadData = async (isRefresh = false) => {
         if (!isRefresh) {
@@ -130,27 +148,129 @@ export const useFinanceHub = () => {
     const blankDays = useMemo(() => Array(getDay(startOfMonth(calendarMonth))).fill(null), [calendarMonth]);
     const maxTrendAmount = Math.max(...dailyTrend.map((item) => item.amount), 1);
     const walletBalance = stats.totalBalance;
+    const transactionCategoryOptions = useMemo(() => {
+        const allowedTypes = transactionTypeFilter === 'all'
+            ? ['income', 'expense']
+            : [transactionTypeFilter];
+        const dynamicCategories = records
+            .filter((record) => allowedTypes.includes(record.type))
+            .map((record) => record.category);
+        const defaults = allowedTypes.flatMap((type) => CATEGORIES[type as 'income' | 'expense']);
+
+        return ['all', ...Array.from(new Set([...defaults, ...dynamicCategories]))];
+    }, [records, transactionTypeFilter]);
+    const filteredTransactions = useMemo(() => {
+        const searchTerm = transactionSearch.trim().toLowerCase();
+        const sorted = records
+            .filter((record) => {
+                if (transactionTypeFilter !== 'all' && record.type !== transactionTypeFilter) {
+                    return false;
+                }
+
+                if (transactionCategoryFilter !== 'all' && record.category !== transactionCategoryFilter) {
+                    return false;
+                }
+
+                if (!searchTerm) {
+                    return true;
+                }
+
+                const amountLabel = String(toAmount(record.amount));
+                const description = (record.description ?? '').toLowerCase();
+                const category = record.category.toLowerCase();
+
+                return description.includes(searchTerm)
+                    || category.includes(searchTerm)
+                    || amountLabel.includes(searchTerm);
+            })
+            .sort((left, right) => {
+                if (transactionSortMode === 'highest') {
+                    return toAmount(right.amount) - toAmount(left.amount);
+                }
+
+                if (transactionSortMode === 'lowest') {
+                    return toAmount(left.amount) - toAmount(right.amount);
+                }
+
+                const leftTime = new Date(left.date).getTime();
+                const rightTime = new Date(right.date).getTime();
+                return transactionSortMode === 'oldest' ? leftTime - rightTime : rightTime - leftTime;
+            });
+
+        return sorted;
+    }, [records, transactionCategoryFilter, transactionSearch, transactionSortMode, transactionTypeFilter]);
 
     const openTransactionModal = (type: 'income' | 'expense') => {
         setTransactionForm(createTransactionForm(type));
+        setTransactionErrors(defaultTransactionErrors());
         setTransactionModalVisible(true);
     };
 
+    const closeTransactionModal = () => {
+        setTransactionErrors(defaultTransactionErrors());
+        setTransactionModalVisible(false);
+    };
+
+    const updateTransactionForm = (updater: (current: TransactionFormState) => TransactionFormState) => {
+        setTransactionForm((current) => updater(current));
+    };
+
+    const updateTransactionAmount = (value: string) => {
+        const amount = sanitizeAmountInput(value);
+        setTransactionForm((current) => ({ ...current, amount }));
+        setTransactionErrors((current) => ({ ...current, amount: undefined }));
+    };
+
+    const updateTransactionDate = (value: string) => {
+        const date = sanitizeDateInput(value);
+        setTransactionForm((current) => ({ ...current, date }));
+        setTransactionErrors((current) => ({ ...current, date: undefined }));
+    };
+
+    useEffect(() => {
+        if (!transactionCategoryOptions.includes(transactionCategoryFilter)) {
+            setTransactionCategoryFilter('all');
+        }
+    }, [transactionCategoryFilter, transactionCategoryOptions]);
+
+    useEffect(() => {
+        if (!isSameMonth(selectedDate, calendarMonth)) {
+            setSelectedDate(startOfMonth(calendarMonth));
+        }
+    }, [calendarMonth, selectedDate]);
+
     const submitTransaction = async () => {
-        if (!transactionForm.amount) {
-            Alert.alert('Missing amount', 'Enter an amount before saving.');
+        const nextErrors: TransactionFormErrors = {};
+        const amount = Number(transactionForm.amount);
+        const date = transactionForm.date.trim();
+
+        if (!transactionForm.amount || !Number.isFinite(amount) || amount <= 0) {
+            nextErrors.amount = 'Enter an amount greater than 0.';
+        }
+
+        if (!transactionForm.category) {
+            nextErrors.category = 'Choose a category before saving.';
+        }
+
+        if (!isValidFinanceDate(date)) {
+            nextErrors.date = 'Use a real date in YYYY-MM-DD format.';
+        }
+
+        if (Object.keys(nextErrors).length > 0) {
+            setTransactionErrors(nextErrors);
             return;
         }
 
+        setTransactionErrors(defaultTransactionErrors());
         setSubmittingTransaction(true);
 
         try {
             const { data, error } = await dataService.addFinanceRecord({
                 type: transactionForm.type,
-                amount: Number(transactionForm.amount),
+                amount,
                 category: transactionForm.category,
                 description: transactionForm.description.trim() || null,
-                date: transactionForm.date,
+                date,
                 payment_method: null,
                 is_recurring: false,
                 recurrence_interval: null,
@@ -164,7 +284,7 @@ export const useFinanceHub = () => {
                 setRecords((current) => [data[0] as FinanceRecord, ...current]);
             }
 
-            setTransactionModalVisible(false);
+            closeTransactionModal();
         } catch (error) {
             console.error('Failed to create transaction:', error);
             Alert.alert('Error', 'Failed to save transaction.');
@@ -197,6 +317,7 @@ export const useFinanceHub = () => {
     };
 
     const closeVaultModal = () => {
+        setVaultErrors(defaultVaultErrors());
         setVaultModalVisible(false);
         setVaultEditing(defaultVaultEditing());
     };
@@ -204,6 +325,7 @@ export const useFinanceHub = () => {
     const openVaultModal = (type: 'fund' | 'goal') => {
         setVaultEditing({ mode: 'create', itemType: type, itemId: null });
         setVaultForm(createVaultForm(type));
+        setVaultErrors(defaultVaultErrors());
         setVaultModalVisible(true);
     };
 
@@ -218,22 +340,56 @@ export const useFinanceHub = () => {
             deadline: goalItem?.deadline ?? '',
             isEmergency: Boolean(goalItem?.is_emergency_fund),
         });
+        setVaultErrors(defaultVaultErrors());
         setVaultModalVisible(true);
     };
 
+    const updateVaultForm = (updater: (current: VaultFormState) => VaultFormState) => {
+        setVaultForm((current) => updater(current));
+    };
+
+    const updateVaultTarget = (value: string) => {
+        const target = sanitizeAmountInput(value);
+        setVaultForm((current) => ({ ...current, target }));
+        setVaultErrors((current) => ({ ...current, target: undefined }));
+    };
+
+    const updateVaultDeadline = (value: string) => {
+        const deadline = sanitizeDateInput(value);
+        setVaultForm((current) => ({ ...current, deadline }));
+        setVaultErrors((current) => ({ ...current, deadline: undefined }));
+    };
+
     const submitVaultItem = async () => {
-        if (!vaultForm.name.trim() || !vaultForm.target.trim()) {
-            Alert.alert('Missing fields', 'Name and target are required.');
+        const nextErrors: VaultFormErrors = {};
+        const targetAmount = Number(vaultForm.target);
+        const deadline = vaultForm.deadline.trim();
+
+        if (!vaultForm.name.trim()) {
+            nextErrors.name = 'Name is required.';
+        }
+
+        if (!vaultForm.target.trim() || !Number.isFinite(targetAmount) || targetAmount <= 0) {
+            nextErrors.target = 'Enter a target amount greater than 0.';
+        }
+
+        if (vaultForm.type === 'goal' && deadline && !isValidFinanceDate(deadline)) {
+            nextErrors.deadline = 'Use a real date in YYYY-MM-DD format.';
+        }
+
+        if (Object.keys(nextErrors).length > 0) {
+            setVaultErrors(nextErrors);
             return;
         }
 
+        setVaultErrors(defaultVaultErrors());
         setSubmittingVaultItem(true);
 
         try {
             if (vaultForm.type === 'fund') {
                 const payload = {
                     name: vaultForm.name.trim(),
-                    target_amount: Number(vaultForm.target),
+                    target_amount: targetAmount,
                     current_amount: 0,
                     color: 'sage',
                 };
@@ -259,9 +415,9 @@ export const useFinanceHub = () => {
             } else {
                 const payload = {
                     name: vaultForm.name.trim(),
-                    target_amount: Number(vaultForm.target),
+                    target_amount: targetAmount,
                     current_amount: 0,
-                    deadline: vaultForm.deadline || null,
+                    deadline: deadline || null,
                     is_emergency_fund: vaultForm.isEmergency,
                 };
                 const result = vaultEditing.mode === 'edit' && vaultEditing.itemType === 'goal'
@@ -328,6 +484,10 @@ export const useFinanceHub = () => {
         setTransferModalVisible(false);
         setTransferAmount('');
         setTransferState(defaultTransferState());
+    };
+
+    const updateTransferAmount = (value: string) => {
+        setTransferAmount(sanitizeAmountInput(value));
     };
 
     const openTransferModal = (
@@ -448,6 +608,7 @@ export const useFinanceHub = () => {
         setActiveTab,
         transactionModalVisible,
         setTransactionModalVisible,
+        closeTransactionModal,
         vaultModalVisible,
         transferModalVisible,
         vaultEditing,
@@ -457,13 +618,32 @@ export const useFinanceHub = () => {
         selectedDate,
         setSelectedDate,
         transactionForm,
+        transactionErrors,
         setTransactionForm,
+        updateTransactionForm,
+        updateTransactionAmount,
+        updateTransactionDate,
         vaultForm,
+        vaultErrors,
         setVaultForm,
+        updateVaultForm,
+        updateVaultTarget,
+        updateVaultDeadline,
         transferState,
         setTransferState,
         transferAmount,
         setTransferAmount,
+        updateTransferAmount,
+        transactionSearch,
+        setTransactionSearch,
+        transactionTypeFilter,
+        setTransactionTypeFilter,
+        transactionCategoryFilter,
+        setTransactionCategoryFilter,
+        transactionSortMode,
+        setTransactionSortMode,
+        transactionCategoryOptions,
+        filteredTransactions,
         stats,
         budgetStats,
         categoryData,

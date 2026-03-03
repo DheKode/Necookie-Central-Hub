@@ -86,7 +86,16 @@ export default function FinanceScreen() {
 
                 {finance.activeTab === 'transactions' ? (
                     <FinanceTransactionsSection
-                        records={finance.records}
+                        records={finance.filteredTransactions}
+                        search={finance.transactionSearch}
+                        onChangeSearch={finance.setTransactionSearch}
+                        typeFilter={finance.transactionTypeFilter}
+                        onChangeTypeFilter={finance.setTransactionTypeFilter}
+                        categoryFilter={finance.transactionCategoryFilter}
+                        onChangeCategoryFilter={finance.setTransactionCategoryFilter}
+                        categoryOptions={finance.transactionCategoryOptions}
+                        sortMode={finance.transactionSortMode}
+                        onChangeSortMode={finance.setTransactionSortMode}
                         onOpenTransactionModal={finance.openTransactionModal}
                         onDeleteTransaction={finance.deleteTransaction}
                     />
@@ -96,19 +105,25 @@ export default function FinanceScreen() {
             <FinanceTransactionModal
                 visible={finance.transactionModalVisible}
                 form={finance.transactionForm}
+                errors={finance.transactionErrors}
                 submitting={finance.submittingTransaction}
-                onClose={() => finance.setTransactionModalVisible(false)}
-                onChange={(updater) => finance.setTransactionForm(updater)}
+                onClose={finance.closeTransactionModal}
+                onChange={finance.updateTransactionForm}
+                onChangeAmount={finance.updateTransactionAmount}
+                onChangeDate={finance.updateTransactionDate}
                 onSubmit={finance.submitTransaction}
             />
 
             <FinanceVaultItemModal
                 visible={finance.vaultModalVisible}
                 form={finance.vaultForm}
+                errors={finance.vaultErrors}
                 editing={finance.vaultEditing}
                 submitting={finance.submittingVaultItem}
                 onClose={finance.closeVaultModal}
-                onChange={(updater) => finance.setVaultForm(updater)}
+                onChange={finance.updateVaultForm}
+                onChangeTarget={finance.updateVaultTarget}
+                onChangeDeadline={finance.updateVaultDeadline}
                 onSubmit={finance.submitVaultItem}
             />
 
@@ -120,7 +135,7 @@ export default function FinanceScreen() {
                 submitting={finance.submittingTransfer}
                 onClose={finance.closeTransferModal}
                 onChangeAction={(action) => finance.setTransferState((current) => ({ ...current, action }))}
-                onChangeAmount={finance.setTransferAmount}
+                onChangeAmount={finance.updateTransferAmount}
                 onSubmit={finance.submitTransfer}
             />
 

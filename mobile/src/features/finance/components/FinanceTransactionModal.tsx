@@ -3,23 +3,36 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { Button, FormField, Modal, PillFilter } from '../../../../components/ui';
 import { colors, radius, spacing, typography } from '../../../../theme';
 import { CATEGORIES, TRANSACTION_TYPES } from '../constants';
-import type { TransactionFormState } from '../types';
+import type { TransactionFormErrors, TransactionFormState } from '../types';
 
 type Props = {
     visible: boolean;
     form: TransactionFormState;
+    errors: TransactionFormErrors;
     submitting: boolean;
     onClose: () => void;
     onChange: (updater: (current: TransactionFormState) => TransactionFormState) => void;
+    onChangeAmount: (value: string) => void;
+    onChangeDate: (value: string) => void;
     onSubmit: () => void;
 };
 
-export function FinanceTransactionModal({ visible, form, submitting, onClose, onChange, onSubmit }: Props) {
+export function FinanceTransactionModal({
+    visible,
+    form,
+    errors,
+    submitting,
+    onClose,
+    onChange,
+    onChangeAmount,
+    onChangeDate,
+    onSubmit,
+}: Props) {
     return (
         <Modal visible={visible} onClose={onClose}>
             <ScrollView showsVerticalScrollIndicator={false}>
                 <Text style={styles.title}>Add transaction</Text>
-                <Text style={styles.subtitle}>Capture the same core inputs the web flow uses.</Text>
+                <Text style={styles.subtitle}>Capture the same core inputs the web flow uses with cleaner amount and date handling.</Text>
 
                 <PillFilter
                     options={TRANSACTION_TYPES.map((item) => ({ id: item.id, label: item.label }))}
@@ -31,9 +44,25 @@ export function FinanceTransactionModal({ visible, form, submitting, onClose, on
                     }))}
                 />
 
-                <FormField label="Amount" keyboardType="decimal-pad" value={form.amount} onChangeText={(value) => onChange((current) => ({ ...current, amount: value }))} placeholder="0.00" />
+                <FormField
+                    label="Amount"
+                    keyboardType="decimal-pad"
+                    value={form.amount}
+                    onChangeText={onChangeAmount}
+                    placeholder="0.00"
+                    error={errors.amount}
+                />
                 <FormField label="Description" value={form.description} onChangeText={(value) => onChange((current) => ({ ...current, description: value }))} placeholder="Optional note" />
-                <FormField label="Date" value={form.date} onChangeText={(value) => onChange((current) => ({ ...current, date: value }))} placeholder="YYYY-MM-DD" autoCapitalize="none" />
+                <FormField
+                    label="Date"
+                    value={form.date}
+                    onChangeText={onChangeDate}
+                    placeholder="YYYY-MM-DD"
+                    autoCapitalize="none"
+                    keyboardType="number-pad"
+                    maxLength={10}
+                    error={errors.date}
+                />
 
                 <Text style={styles.sectionLabel}>Category</Text>
                 <View style={styles.categoryWrap}>

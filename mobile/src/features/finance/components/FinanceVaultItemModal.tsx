@@ -3,19 +3,33 @@ import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Button, FormField, Modal, PillFilter } from '../../../../components/ui';
 import { colors, spacing, typography } from '../../../../theme';
 import { CREATE_TYPES } from '../constants';
-import type { VaultEditingState, VaultFormState } from '../types';
+import type { VaultEditingState, VaultFormErrors, VaultFormState } from '../types';
 
 type Props = {
     visible: boolean;
     form: VaultFormState;
+    errors: VaultFormErrors;
     editing: VaultEditingState;
     submitting: boolean;
     onClose: () => void;
     onChange: (updater: (current: VaultFormState) => VaultFormState) => void;
+    onChangeTarget: (value: string) => void;
+    onChangeDeadline: (value: string) => void;
     onSubmit: () => void;
 };
 
-export function FinanceVaultItemModal({ visible, form, editing, submitting, onClose, onChange, onSubmit }: Props) {
+export function FinanceVaultItemModal({
+    visible,
+    form,
+    errors,
+    editing,
+    submitting,
+    onClose,
+    onChange,
+    onChangeTarget,
+    onChangeDeadline,
+    onSubmit,
+}: Props) {
     return (
         <Modal visible={visible} onClose={onClose}>
             <ScrollView showsVerticalScrollIndicator={false}>
@@ -38,12 +52,34 @@ export function FinanceVaultItemModal({ visible, form, editing, submitting, onCl
                     }}
                 />
 
-                <FormField label="Name" value={form.name} onChangeText={(value) => onChange((current) => ({ ...current, name: value }))} placeholder={form.type === 'fund' ? 'Bills reserve' : 'New laptop'} />
-                <FormField label="Target amount" keyboardType="decimal-pad" value={form.target} onChangeText={(value) => onChange((current) => ({ ...current, target: value }))} placeholder="0.00" />
+                <FormField
+                    label="Name"
+                    value={form.name}
+                    onChangeText={(value) => onChange((current) => ({ ...current, name: value }))}
+                    placeholder={form.type === 'fund' ? 'Bills reserve' : 'New laptop'}
+                    error={errors.name}
+                />
+                <FormField
+                    label="Target amount"
+                    keyboardType="decimal-pad"
+                    value={form.target}
+                    onChangeText={onChangeTarget}
+                    placeholder="0.00"
+                    error={errors.target}
+                />
 
                 {form.type === 'goal' ? (
                     <>
-                        <FormField label="Deadline" value={form.deadline} onChangeText={(value) => onChange((current) => ({ ...current, deadline: value }))} placeholder="YYYY-MM-DD" autoCapitalize="none" />
+                        <FormField
+                            label="Deadline"
+                            value={form.deadline}
+                            onChangeText={onChangeDeadline}
+                            placeholder="YYYY-MM-DD"
+                            autoCapitalize="none"
+                            keyboardType="number-pad"
+                            maxLength={10}
+                            error={errors.deadline}
+                        />
                         <View style={styles.switchRow}>
                             <View style={styles.switchCopy}>
                                 <Text style={styles.switchTitle}>Emergency fund</Text>

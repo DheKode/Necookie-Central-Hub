@@ -79,6 +79,12 @@ export type TransactionFormState = {
     date: string;
 };
 
+export type TransactionFormErrors = Partial<Record<'amount' | 'category' | 'date', string>>;
+
+export type TransactionSortMode = 'newest' | 'oldest' | 'highest' | 'lowest';
+
+export type TransactionTypeFilter = 'all' | 'income' | 'expense';
+
 export type VaultFormState = {
     type: 'fund' | 'goal';
     name: string;
@@ -86,3 +92,5 @@ export type VaultFormState = {
     deadline: string;
     isEmergency: boolean;
 };
+
+export type VaultFormErrors = Partial<Record<'name' | 'target' | 'deadline', string>>;
