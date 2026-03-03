@@ -1,12 +1,16 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffectEvent } from 'react';
+import { useEffect, useRef } from 'react';
 
 export function useRefreshOnFocus(callback: () => void) {
-    const onFocus = useEffectEvent(callback);
+    const callbackRef = useRef(callback);
+
+    useEffect(() => {
+        callbackRef.current = callback;
+    }, [callback]);
 
     useFocusEffect(
-        useCallback(() => {
-            onFocus();
-        }, [onFocus]),
+        useRef(() => {
+            callbackRef.current();
+        }).current,
     );
 }
