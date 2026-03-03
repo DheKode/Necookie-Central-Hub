@@ -1,137 +1,142 @@
 # Mobile Implementation Plan
 
-## Goal
+## Current Status
 
-Create a mobile version of Necookie Central Hub without turning the current web client into a fragile cross-platform codebase.
+`mobile/` is no longer a proposal. It is an active Expo app with a working authenticated shell and core feature coverage.
 
-The right approach is to build a separate mobile client that reuses shared business logic, data models, and backend services where possible.
+Implemented today:
 
-## Recommended Stack
+- Expo 55 app with Expo Router
+- Supabase auth with AsyncStorage session persistence
+- Auth routing for login, signup, and protected tabs
+- Dashboard, Todo, Journal, Finance, and History screens
+- Shared data access through `shared/services`
+- Internal Android release config via EAS
+- TypeScript validation and Android export validation scripts
 
-- React Native with Expo
-- Supabase for auth and data access
-- Expo Router or React Navigation
-- A mobile-native component system, not a direct Tailwind class port
+Recent stabilization work:
 
-## Why This Should Be a Separate Client
+- Finance tab refresh loop fixed in `mobile/src/hooks/useRefreshOnFocus.ts`
+- Finance vault transfer flow hardened to avoid partial-write inconsistencies
+- Shared mobile modal improved for Android keyboard avoidance
+- Generated Android export artifacts excluded from source control
 
-The current app is web-first and tightly coupled to browser UI patterns:
+## What Exists In Mobile Right Now
 
-- `react-router-dom` is used for navigation
-- Tailwind utility classes are embedded directly in the JSX
-- Recharts is used for finance visualizations
-- Some flows depend on `window.confirm` and `prompt`
-- Layout assumes desktop sidebar behavior and browser scrolling
+### Navigation and Auth
 
-Trying to force the current client into mobile would create more rework than starting a proper Expo app.
+- Route groups for `(auth)` and `(tabs)`
+- Login and signup flows backed by Supabase
+- Session-based redirect handling in the root layout
+- Dashboard sign-out flow
 
-## Current Codebase Constraints
+### Feature Coverage
 
-Before starting mobile, these realities matter:
+- Dashboard:
+  - recent activity
+  - next-task summary
+  - shortcuts into core modules
+- Todo:
+  - task list
+  - status filtering
+  - completion toggling
+- Journal:
+  - entry list
+  - mood selection
+  - create-entry modal
+- Finance:
+  - dashboard summary
+  - calendar view
+  - transaction history
+  - add/delete transaction
+  - savings funds/goals
+  - transfer and balance adjustment flows
+- History:
+  - grouped activity timeline
 
-- Most CRUD goes directly from the client to Supabase
-- The Express server is currently only used for AI summary generation
-- Data access and UI logic are mixed together in several feature pages
-- Some security-sensitive behavior is still client-trusting
-- The vault PIN is frontend-only and should not be reused as a security model
+## Release State
 
-## Phased Plan
+Current mobile release configuration:
 
-### Phase 1: Extract shared logic from the web app
+- iOS bundle identifier: `com.necookie.centralhub`
+- Android package: `com.necookie.centralhub`
+- Internal Android EAS profile: `internal`
+- Internal Android artifact type: `apk`
 
-Move reusable logic out of page components and into shared modules:
+Current validation commands:
 
-- Centralize Supabase queries into domain services
-- Separate data transforms from rendering logic
-- Define shared types or schemas for tasks, journal entries, finance records, sleep logs, and activity logs
-- Remove browser-only prompts and confirmations from core workflows
+- `npm run typecheck`
+- `npm run export:android`
+- `npm run build:internal:android`
 
-Target structure:
+Most recent local release checks completed successfully for:
 
-- `client/` remains the current web app
-- `mobile/` becomes the new Expo app
-- `shared/` or `packages/core/` holds reusable domain logic
+- TypeScript compile validation
+- Android export generation
 
-### Phase 2: Create the mobile app foundation
+## Remaining Work
 
-- Scaffold an Expo app
-- Add Supabase auth with secure session persistence
-- Set up navigation
-- Define mobile theme tokens and shared design primitives
-- Configure environment handling for Supabase and API URLs
+### Priority 1: Stabilize Current Flows
 
-### Phase 3: Build the first mobile feature set
+Focus on quality before widening scope.
 
-Start with the most valuable and easiest-to-port features:
+- Run device QA across auth, dashboard, todo, journal, finance, and history
+- Verify session recovery after app background/foreground transitions
+- Exercise finance destructive flows and transfer edge cases with real backend data
+- Check small Android screens and tall modal content on physical devices
+- Add regression coverage for the focus-refresh hook and finance transfer flow if a test harness is introduced
 
-1. Authentication
-2. Todo
-3. Journal
-4. Finance transactions
-5. History feed
-6. Dashboard summary
+### Priority 2: Improve Incomplete Product Areas
 
-This order works because those features already have relatively clear data models in the current codebase.
+These areas exist but still read as early implementations.
 
-### Phase 4: Replace web-specific dependencies
+- Todo:
+  - replace placeholder add-task action with a real creation flow
+  - add edit/delete coverage if required for parity
+- Dashboard:
+  - refine loading/error states and shortcuts based on actual mobile usage
+- Journal:
+  - add edit/delete/search only if they are needed for release scope
+- History:
+  - confirm the unified feed behavior matches backend data expectations
 
-Expected swaps:
+### Priority 3: Harden Release Process
 
-- Recharts -> mobile chart library
-- `react-router-dom` -> Expo Router or React Navigation
-- browser dialogs -> mobile sheets, alerts, and action menus
-- desktop-heavy layouts -> stacked mobile-first screens
+- Add a repeatable pre-push or CI validation path for mobile
+- Decide whether `expo-doctor` should be pinned as a local dependency or run another way
+- Define versioning/release-number workflow for `app.json` and EAS production builds
+- Confirm store-facing app naming, icon, splash, and metadata before external distribution
 
-### Phase 5: Backend hardening for mobile
+### Priority 4: Security and Backend Hardening
 
-The mobile app raises the cost of weak trust boundaries, so backend cleanup should follow early:
+The current mobile app inherits existing backend trust boundaries from the web app.
 
-- Verify Supabase JWTs on the server
-- Stop trusting raw `userId` in AI requests
-- Move sensitive or privileged flows behind authenticated endpoints
-- Redesign vault security before shipping it on mobile
+- Stop trusting raw client context for sensitive server operations
+- Verify Supabase JWTs server-side where server endpoints are used
+- Revisit vault/security-sensitive flows before treating them as secure features
+- Review whether any finance or future premium flows should move behind authenticated backend endpoints
 
-## Feature Notes
+## Things That Are Safe To Remove
 
-### Todo
+Based on the current route structure:
 
-- Good first candidate for mobile
-- Benefits from swipe actions, bottom sheets, and quick-add flows
-- Subtasks and project filtering map cleanly to native patterns
+- `mobile/app/modal.tsx`
+- `mobile/app/(tabs)/two.tsx`
 
-### Journal
-
-- Strong mobile fit
-- Optimize for fast entry creation, mood selection, and search
-
-### Finance
-
-- Focus on quick transaction entry, history, and monthly summaries first
-- Keep advanced analytics secondary until the core flows feel native
-
-### Dashboard
-
-- Should be simplified for mobile
-- Prioritize summary cards and shortcuts instead of mirroring the full desktop density
-
-### Vault
-
-- Do not port the current frontend PIN approach as-is
-- Treat this as a later security redesign
-
-## Risks
-
-- Reusing too much JSX-level code will slow down mobile development
-- Current page components are large and should be decomposed before reuse
-- Direct client-to-Supabase patterns may need review for long-term mobile security
-- Visual parity with the web app should not be the goal; usability should
+Those placeholder Expo template routes are no longer referenced by the active layout tree.
 
 ## Suggested Execution Order
 
-1. Extract shared services and data models from the current web app
-2. Scaffold the Expo app
-3. Implement auth and navigation
-4. Ship Todo and Journal
-5. Add Finance and History
-6. Add Dashboard summaries and AI integration
-7. Harden backend auth and sensitive workflows
+1. Finish device QA on the current mobile feature set.
+2. Implement the missing Todo creation flow.
+3. Add lightweight release automation for typecheck plus Android export validation.
+4. Tighten security-sensitive backend assumptions inherited from the web app.
+5. Only then expand mobile scope beyond the current feature set.
+
+## Non-Goals For The Next Pass
+
+- Do not broad-refactor the web app to chase cross-platform reuse.
+- Do not expand the mobile feature surface before the current flows are stable.
+- Do not assume web parity is required screen-for-screen.
+
+The mobile app is now in a stabilization phase, not an initial scaffolding phase.
