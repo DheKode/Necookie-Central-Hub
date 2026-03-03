@@ -53,6 +53,10 @@ type GoalRecord = {
     is_emergency_fund?: boolean;
 };
 
+type VaultEditingState =
+    | { mode: 'create'; itemType: 'fund' | 'goal'; itemId: null }
+    | { mode: 'edit'; itemType: 'fund' | 'goal'; itemId: number };
+
 type FinanceStats = {
     totalBalance: number;
     incomeToday: number;
@@ -113,6 +117,16 @@ const toAmount = (value: number | string | null | undefined) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
 };
+
+const normalizeFundRecord = (record: any): FundRecord => ({
+    ...record,
+    color: record.color ?? record.hex_color ?? null,
+});
+
+const normalizeGoalRecord = (record: any): GoalRecord => ({
+    ...record,
+    is_emergency_fund: record.is_emergency_fund ?? record.type === 'emergency',
+});
 
 const buildStats = (records: FinanceRecord[]): FinanceStats => {
     const today = new Date();
@@ -252,6 +266,11 @@ export default function FinanceScreen() {
     const [activeTab, setActiveTab] = useState<typeof FINANCE_TABS[number]['id']>('dashboard');
     const [transactionModalVisible, setTransactionModalVisible] = useState(false);
     const [vaultModalVisible, setVaultModalVisible] = useState(false);
+    const [vaultEditing, setVaultEditing] = useState<VaultEditingState>({
+        mode: 'create',
+        itemType: 'fund',
+        itemId: null,
+    });
     const [calendarMonth, setCalendarMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [transactionForm, setTransactionForm] = useState({
@@ -282,8 +301,8 @@ export default function FinanceScreen() {
             ]);
 
             setRecords((financeData ?? []) as FinanceRecord[]);
-            setFunds((fundData ?? []) as FundRecord[]);
-            setGoals((goalData ?? []) as GoalRecord[]);
+            setFunds(((fundData ?? []) as any[]).map(normalizeFundRecord));
+            setGoals(((goalData ?? []) as any[]).map(normalizeGoalRecord));
         } catch (error) {
             console.error('Failed to load finance data:', error);
             Alert.alert('Error', 'Failed to load finance data.');
@@ -390,6 +409,15 @@ export default function FinanceScreen() {
         ]);
     };
 
+    const closeVaultModal = () => {
+        setVaultModalVisible(false);
+        setVaultEditing({
+            mode: 'create',
+            itemType: 'fund',
+            itemId: null,
+        });
+    };
+
     const submitVaultItem = async () => {
         if (!vaultForm.name.trim() || !vaultForm.target.trim()) {
             Alert.alert('Missing fields', 'Name and target are required.');
@@ -400,41 +428,60 @@ export default function FinanceScreen() {
 
         try {
             if (vaultForm.type === 'fund') {
-                const { data, error } = await dataService.addFund({
+                const payload = {
                     name: vaultForm.name.trim(),
                     target_amount: Number(vaultForm.target),
                     current_amount: 0,
                     color: 'sage',
-                });
+                };
+                const result = vaultEditing.mode === 'edit' && vaultEditing.itemType === 'fund'
+                    ? await dataService.updateFund(vaultEditing.itemId, {
+                        name: payload.name,
+                        target_amount: payload.target_amount,
+                    })
+                    : await dataService.addFund(payload);
+                const { data, error } = result;
 
                 if (error) {
                     throw error;
                 }
 
-                const created = data?.[0] as FundRecord | undefined;
-                if (created) {
-                    setFunds((current) => [...current, created]);
+                const saved = data?.[0] ? normalizeFundRecord(data[0]) : undefined;
+                if (saved) {
+                    setFunds((current) => (
+                        vaultEditing.mode === 'edit'
+                            ? current.map((fund) => (fund.id === saved.id ? { ...fund, ...saved } : fund))
+                            : [...current, saved]
+                    ));
                 }
             } else {
-                const { data, error } = await dataService.addGoal({
+                const payload = {
                     name: vaultForm.name.trim(),
                     target_amount: Number(vaultForm.target),
                     current_amount: 0,
                     deadline: vaultForm.deadline || null,
                     is_emergency_fund: vaultForm.isEmergency,
-                });
+                };
+                const result = vaultEditing.mode === 'edit' && vaultEditing.itemType === 'goal'
+                    ? await dataService.updateGoal(vaultEditing.itemId, payload)
+                    : await dataService.addGoal(payload);
+                const { data, error } = result;
 
                 if (error) {
                     throw error;
                 }
 
-                const created = data?.[0] as GoalRecord | undefined;
-                if (created) {
-                    setGoals((current) => [...current, created]);
+                const saved = data?.[0] ? normalizeGoalRecord(data[0]) : undefined;
+                if (saved) {
+                    setGoals((current) => (
+                        vaultEditing.mode === 'edit'
+                            ? current.map((goal) => (goal.id === saved.id ? { ...goal, ...saved } : goal))
+                            : [...current, saved]
+                    ));
                 }
             }
 
-            setVaultModalVisible(false);
+            closeVaultModal();
             setVaultForm({
                 type: 'fund',
                 name: '',
@@ -443,8 +490,8 @@ export default function FinanceScreen() {
                 isEmergency: false,
             });
         } catch (error) {
-            console.error('Failed to create vault item:', error);
-            Alert.alert('Error', 'Failed to create vault item.');
+            console.error('Failed to save vault item:', error);
+            Alert.alert('Error', 'Failed to save vault item.');
         } finally {
             setSubmittingVaultItem(false);
         }
@@ -636,6 +683,11 @@ export default function FinanceScreen() {
     );
 
     const openVaultModal = (type: 'fund' | 'goal') => {
+        setVaultEditing({
+            mode: 'create',
+            itemType: type,
+            itemId: null,
+        });
         setVaultForm({
             type,
             name: '',
@@ -644,6 +696,70 @@ export default function FinanceScreen() {
             isEmergency: false,
         });
         setVaultModalVisible(true);
+    };
+
+    const openVaultEditModal = (item: FundRecord | GoalRecord, type: 'fund' | 'goal') => {
+        const goalItem = type === 'goal' ? item as GoalRecord : null;
+
+        setVaultEditing({
+            mode: 'edit',
+            itemType: type,
+            itemId: item.id,
+        });
+        setVaultForm({
+            type,
+            name: item.name,
+            target: String(toAmount(item.target_amount)),
+            deadline: goalItem?.deadline ?? '',
+            isEmergency: Boolean(goalItem?.is_emergency_fund),
+        });
+        setVaultModalVisible(true);
+    };
+
+    const handleDeleteFund = (fundId: number) => {
+        Alert.alert('Delete fund', 'This will permanently remove the savings account.', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: async () => {
+                    try {
+                        const { error } = await dataService.deleteFund(fundId);
+                        if (error) {
+                            throw error;
+                        }
+
+                        setFunds((current) => current.filter((fund) => fund.id !== fundId));
+                    } catch (error) {
+                        console.error('Failed to delete fund:', error);
+                        Alert.alert('Error', 'Failed to delete fund.');
+                    }
+                },
+            },
+        ]);
+    };
+
+    const handleDeleteGoal = (goalId: number) => {
+        Alert.alert('Delete goal', 'This will permanently remove the savings goal.', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: async () => {
+                    try {
+                        const { error } = await dataService.deleteGoal(goalId);
+                        if (error) {
+                            throw error;
+                        }
+
+                        setGoals((current) => current.filter((goal) => goal.id !== goalId));
+                    } catch (error) {
+                        console.error('Failed to delete goal:', error);
+                        Alert.alert('Error', 'Failed to delete goal.');
+                    }
+                },
+            },
+        ]);
     };
 
     const renderVault = () => (
@@ -683,8 +799,16 @@ export default function FinanceScreen() {
                                             <Text style={styles.vaultItemName}>{fund.name}</Text>
                                             <Text style={styles.recordDate}>Target {currency(targetAmount)}</Text>
                                         </View>
-                                        <View style={[styles.smallBadge, { backgroundColor: colors.secondaryLight }]}>
-                                            <Ionicons name="card-outline" size={14} color={colors.secondary} />
+                                        <View style={styles.vaultActions}>
+                                            <TouchableOpacity style={styles.vaultActionButton} onPress={() => openVaultEditModal(fund, 'fund')}>
+                                                <Ionicons name="create-outline" size={16} color={colors.textSecondary} />
+                                            </TouchableOpacity>
+                                            <TouchableOpacity style={styles.vaultActionButton} onPress={() => handleDeleteFund(fund.id)}>
+                                                <Ionicons name="trash-outline" size={16} color={colors.danger} />
+                                            </TouchableOpacity>
+                                            <View style={[styles.smallBadge, { backgroundColor: colors.secondaryLight }]}>
+                                                <Ionicons name="card-outline" size={14} color={colors.secondary} />
+                                            </View>
                                         </View>
                                     </View>
                                     <Text style={styles.vaultCurrent}>{currency(currentAmount)}</Text>
@@ -724,12 +848,20 @@ export default function FinanceScreen() {
                                                 {goal.deadline ? `Due ${format(parseISO(goal.deadline), 'MMM d, yyyy')}` : 'No deadline'}
                                             </Text>
                                         </View>
-                                        <View style={[styles.smallBadge, { backgroundColor: goal.is_emergency_fund ? colors.dangerLight : colors.primaryLight }]}>
-                                            <Ionicons
-                                                name={goal.is_emergency_fund ? 'flash-outline' : 'trophy-outline'}
-                                                size={14}
-                                                color={goal.is_emergency_fund ? colors.danger : colors.success}
-                                            />
+                                        <View style={styles.vaultActions}>
+                                            <TouchableOpacity style={styles.vaultActionButton} onPress={() => openVaultEditModal(goal, 'goal')}>
+                                                <Ionicons name="create-outline" size={16} color={colors.textSecondary} />
+                                            </TouchableOpacity>
+                                            <TouchableOpacity style={styles.vaultActionButton} onPress={() => handleDeleteGoal(goal.id)}>
+                                                <Ionicons name="trash-outline" size={16} color={colors.danger} />
+                                            </TouchableOpacity>
+                                            <View style={[styles.smallBadge, { backgroundColor: goal.is_emergency_fund ? colors.dangerLight : colors.primaryLight }]}>
+                                                <Ionicons
+                                                    name={goal.is_emergency_fund ? 'flash-outline' : 'trophy-outline'}
+                                                    size={14}
+                                                    color={goal.is_emergency_fund ? colors.danger : colors.success}
+                                                />
+                                            </View>
                                         </View>
                                     </View>
                                     <Text style={styles.vaultCurrent}>{currency(currentAmount)} / {currency(targetAmount)}</Text>
@@ -893,15 +1025,27 @@ export default function FinanceScreen() {
                 </ScrollView>
             </Modal>
 
-            <Modal visible={vaultModalVisible} onClose={() => setVaultModalVisible(false)}>
+            <Modal visible={vaultModalVisible} onClose={closeVaultModal}>
                 <ScrollView showsVerticalScrollIndicator={false}>
-                    <Text style={styles.modalTitle}>Create vault item</Text>
-                    <Text style={styles.modalSubtitle}>Start with funds and goals first; transfer mechanics can layer in after this.</Text>
+                    <Text style={styles.modalTitle}>
+                        {vaultEditing.mode === 'edit' ? 'Edit vault item' : 'Create vault item'}
+                    </Text>
+                    <Text style={styles.modalSubtitle}>
+                        {vaultEditing.mode === 'edit'
+                            ? 'Update the details for this fund or goal.'
+                            : 'Start with funds and goals first; transfer mechanics can layer in after this.'}
+                    </Text>
 
                     <PillFilter
                         options={CREATE_TYPES.map((item) => ({ id: item.id, label: item.label }))}
                         selectedId={vaultForm.type}
-                        onSelect={(id) => setVaultForm((current) => ({ ...current, type: id as 'fund' | 'goal' }))}
+                        onSelect={(id) => {
+                            if (vaultEditing.mode === 'edit') {
+                                return;
+                            }
+
+                            setVaultForm((current) => ({ ...current, type: id as 'fund' | 'goal' }));
+                        }}
                     />
 
                     <FormField
@@ -943,8 +1087,12 @@ export default function FinanceScreen() {
                     ) : null}
 
                     <View style={styles.modalActions}>
-                        <Button label="Cancel" variant="ghost" onPress={() => setVaultModalVisible(false)} />
-                        <Button label="Create" onPress={submitVaultItem} loading={submittingVaultItem} />
+                        <Button label="Cancel" variant="ghost" onPress={closeVaultModal} />
+                        <Button
+                            label={vaultEditing.mode === 'edit' ? 'Save' : 'Create'}
+                            onPress={submitVaultItem}
+                            loading={submittingVaultItem}
+                        />
                     </View>
                 </ScrollView>
             </Modal>
@@ -1283,11 +1431,27 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
+        gap: spacing.sm,
     },
     vaultItemName: {
         fontSize: typography.sizes.md,
         fontWeight: typography.weights.bold,
         color: colors.textPrimary,
+    },
+    vaultActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.xs,
+    },
+    vaultActionButton: {
+        width: 28,
+        height: 28,
+        borderRadius: radius.sm,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.surface,
+        borderWidth: 1,
+        borderColor: colors.border,
     },
     smallBadge: {
         width: 28,
