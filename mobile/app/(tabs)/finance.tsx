@@ -57,6 +57,28 @@ type VaultEditingState =
     | { mode: 'create'; itemType: 'fund' | 'goal'; itemId: null }
     | { mode: 'edit'; itemType: 'fund' | 'goal'; itemId: number };
 
+type VaultTransferState = {
+    visible: boolean;
+    itemType: 'fund' | 'goal';
+    action: 'deposit' | 'withdraw' | 'adjust';
+    itemId: number | null;
+    itemName: string;
+    currentAmount: number;
+};
+
+type VaultFeedback = {
+    tone: 'success' | 'error';
+    message: string;
+};
+
+type VaultTransferEntry = {
+    id: number;
+    direction: 'deposit' | 'withdraw';
+    amount: number;
+    date: string;
+    description: string;
+};
+
 type FinanceStats = {
     totalBalance: number;
     incomeToday: number;
@@ -127,6 +149,19 @@ const normalizeGoalRecord = (record: any): GoalRecord => ({
     ...record,
     is_emergency_fund: record.is_emergency_fund ?? record.type === 'emergency',
 });
+
+const getVaultTransferHistory = (records: FinanceRecord[], itemName: string): VaultTransferEntry[] => {
+    return records
+        .filter((record) => record.category === 'Savings' && typeof record.description === 'string' && record.description.includes(itemName))
+        .map((record) => ({
+            id: record.id,
+            direction: record.type === 'expense' ? 'deposit' : 'withdraw',
+            amount: toAmount(record.amount),
+            date: record.date,
+            description: record.description ?? '',
+        }))
+        .slice(0, 3);
+};
 
 const buildStats = (records: FinanceRecord[]): FinanceStats => {
     const today = new Date();
@@ -266,11 +301,23 @@ export default function FinanceScreen() {
     const [activeTab, setActiveTab] = useState<typeof FINANCE_TABS[number]['id']>('dashboard');
     const [transactionModalVisible, setTransactionModalVisible] = useState(false);
     const [vaultModalVisible, setVaultModalVisible] = useState(false);
+    const [transferModalVisible, setTransferModalVisible] = useState(false);
     const [vaultEditing, setVaultEditing] = useState<VaultEditingState>({
         mode: 'create',
         itemType: 'fund',
         itemId: null,
     });
+    const [transferState, setTransferState] = useState<VaultTransferState>({
+        visible: false,
+        itemType: 'fund',
+        action: 'deposit',
+        itemId: null,
+        itemName: '',
+        currentAmount: 0,
+    });
+    const [transferAmount, setTransferAmount] = useState('');
+    const [submittingTransfer, setSubmittingTransfer] = useState(false);
+    const [vaultFeedback, setVaultFeedback] = useState<VaultFeedback | null>(null);
     const [calendarMonth, setCalendarMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [transactionForm, setTransactionForm] = useState({
@@ -415,6 +462,19 @@ export default function FinanceScreen() {
             mode: 'create',
             itemType: 'fund',
             itemId: null,
+        });
+    };
+
+    const closeTransferModal = () => {
+        setTransferModalVisible(false);
+        setTransferAmount('');
+        setTransferState({
+            visible: false,
+            itemType: 'fund',
+            action: 'deposit',
+            itemId: null,
+            itemName: '',
+            currentAmount: 0,
         });
     };
 
@@ -762,6 +822,119 @@ export default function FinanceScreen() {
         ]);
     };
 
+    const openTransferModal = (
+        item: FundRecord | GoalRecord,
+        itemType: 'fund' | 'goal',
+        action: 'deposit' | 'withdraw' | 'adjust',
+    ) => {
+        setVaultFeedback(null);
+        setTransferState({
+            visible: true,
+            itemType,
+            action,
+            itemId: item.id,
+            itemName: item.name,
+            currentAmount: toAmount(item.current_amount),
+        });
+        setTransferAmount('');
+        setTransferModalVisible(true);
+    };
+
+    const submitTransfer = async () => {
+        const amount = Number(transferAmount);
+
+        if (!transferState.itemId || !Number.isFinite(amount) || amount <= 0) {
+            setVaultFeedback({ tone: 'error', message: 'Enter a valid transfer amount.' });
+            return;
+        }
+
+        if (transferState.action === 'deposit' && amount > walletBalance) {
+            setVaultFeedback({ tone: 'error', message: 'Not enough wallet balance for this transfer.' });
+            return;
+        }
+
+        if (transferState.action === 'withdraw' && amount > transferState.currentAmount) {
+            setVaultFeedback({ tone: 'error', message: 'You cannot withdraw more than the reserved amount.' });
+            return;
+        }
+
+        setSubmittingTransfer(true);
+        setVaultFeedback(null);
+
+        const nextAmount = transferState.action === 'deposit'
+            ? transferState.currentAmount + amount
+            : transferState.action === 'withdraw'
+                ? transferState.currentAmount - amount
+                : amount;
+        const transferDate = format(new Date(), 'yyyy-MM-dd');
+        const transactionPayload = transferState.action === 'adjust'
+            ? null
+            : {
+                type: transferState.action === 'deposit' ? 'expense' as const : 'income' as const,
+                amount,
+                category: 'Savings',
+                description: `${transferState.action === 'deposit' ? 'Transfer to' : 'Withdraw from'} ${transferState.itemName}`,
+                date: transferDate,
+                payment_method: null,
+                is_recurring: false,
+                recurrence_interval: null,
+            };
+
+        try {
+            const updatePromise = transferState.itemType === 'fund'
+                ? dataService.updateFund(transferState.itemId, { current_amount: nextAmount })
+                : dataService.updateGoal(transferState.itemId, { current_amount: nextAmount });
+            const [updateResult, financeResult] = await Promise.all([
+                updatePromise,
+                transactionPayload ? dataService.addFinanceRecord(transactionPayload) : Promise.resolve({ data: null, error: null }),
+            ]);
+
+            if (updateResult.error) {
+                throw updateResult.error;
+            }
+
+            if (financeResult.error) {
+                throw financeResult.error;
+            }
+
+            const updatedRecord = updateResult.data?.[0];
+            const createdTransaction = financeResult.data?.[0] as FinanceRecord | undefined;
+
+            if (transferState.itemType === 'fund' && updatedRecord) {
+                const normalized = normalizeFundRecord(updatedRecord);
+                setFunds((current) => current.map((fund) => (
+                    fund.id === normalized.id ? { ...fund, ...normalized } : fund
+                )));
+            }
+
+            if (transferState.itemType === 'goal' && updatedRecord) {
+                const normalized = normalizeGoalRecord(updatedRecord);
+                setGoals((current) => current.map((goal) => (
+                    goal.id === normalized.id ? { ...goal, ...normalized } : goal
+                )));
+            }
+
+            if (createdTransaction) {
+                setRecords((current) => [createdTransaction, ...current]);
+            }
+
+            setVaultFeedback({
+                tone: 'success',
+                message: transferState.action === 'adjust'
+                    ? `Adjusted ${transferState.itemName} to ${currency(amount)} without changing wallet balance.`
+                    : `${transferState.action === 'deposit' ? 'Moved' : 'Returned'} ${currency(amount)} ${transferState.action === 'deposit' ? 'into' : 'from'} ${transferState.itemName}.`,
+            });
+            closeTransferModal();
+        } catch (error) {
+            console.error('Failed to complete vault transfer:', error);
+            setVaultFeedback({ tone: 'error', message: 'Transfer failed. Data was refreshed to keep balances accurate.' });
+            closeTransferModal();
+            loadData(true);
+        } finally {
+            setSubmittingTransfer(false);
+        }
+    };
+
     const renderVault = () => (
         <View style={styles.sectionStack}>
             <Card style={styles.vaultHero}>
@@ -774,6 +947,25 @@ export default function FinanceScreen() {
                     <Ionicons name="shield-checkmark-outline" size={24} color={colors.secondary} />
                 </View>
             </Card>
+
+            {vaultFeedback ? (
+                <Card
+                    variant="outline"
+                    style={[
+                        styles.feedbackCard,
+                        vaultFeedback.tone === 'success' ? styles.feedbackCardSuccess : styles.feedbackCardError,
+                    ]}
+                >
+                    <View style={styles.feedbackRow}>
+                        <Ionicons
+                            name={vaultFeedback.tone === 'success' ? 'checkmark-circle-outline' : 'alert-circle-outline'}
+                            size={18}
+                            color={vaultFeedback.tone === 'success' ? colors.success : colors.danger}
+                        />
+                        <Text style={styles.feedbackText}>{vaultFeedback.message}</Text>
+                    </View>
+                </Card>
+            ) : null}
 
             <Card variant="outline">
                 <SectionHeader title="Savings accounts" actionLabel="Create" onActionPress={() => openVaultModal('fund')} />
@@ -791,6 +983,7 @@ export default function FinanceScreen() {
                             const currentAmount = toAmount(fund.current_amount);
                             const targetAmount = toAmount(fund.target_amount);
                             const progress = targetAmount ? Math.min((currentAmount / targetAmount) * 100, 100) : 0;
+                            const transferHistory = getVaultTransferHistory(records, fund.name);
 
                             return (
                                 <Card key={fund.id} style={styles.vaultItemCard} variant="flat">
@@ -815,6 +1008,26 @@ export default function FinanceScreen() {
                                     <View style={styles.progressTrack}>
                                         <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: colors.secondary }]} />
                                     </View>
+                                    <View style={styles.transferActionsRow}>
+                                        <Button label="Withdraw" variant="secondary" size="sm" onPress={() => openTransferModal(fund, 'fund', 'withdraw')} style={styles.transferButton} />
+                                        <Button label="Deposit" size="sm" onPress={() => openTransferModal(fund, 'fund', 'deposit')} style={styles.transferButton} />
+                                        <Button label="Adjust" variant="ghost" size="sm" onPress={() => openTransferModal(fund, 'fund', 'adjust')} style={styles.transferButton} />
+                                    </View>
+                                    {transferHistory.length ? (
+                                        <View style={styles.transferHistoryList}>
+                                            {transferHistory.map((entry) => (
+                                                <View key={entry.id} style={styles.transferHistoryRow}>
+                                                    <View style={styles.transferHistoryInfo}>
+                                                        <View style={[styles.transferHistoryDot, { backgroundColor: entry.direction === 'deposit' ? colors.secondary : colors.success }]} />
+                                                        <Text style={styles.transferHistoryLabel}>
+                                                            {entry.direction === 'deposit' ? 'Deposit' : 'Withdraw'} · {format(parseISO(entry.date), 'MMM d')}
+                                                        </Text>
+                                                    </View>
+                                                    <Text style={styles.transferHistoryAmount}>{currency(entry.amount)}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    ) : null}
                                 </Card>
                             );
                         })}
@@ -838,6 +1051,7 @@ export default function FinanceScreen() {
                             const currentAmount = toAmount(goal.current_amount);
                             const targetAmount = toAmount(goal.target_amount);
                             const progress = targetAmount ? Math.min((currentAmount / targetAmount) * 100, 100) : 0;
+                            const transferHistory = getVaultTransferHistory(records, goal.name);
 
                             return (
                                 <Card key={goal.id} style={styles.vaultItemCard} variant="flat">
@@ -868,6 +1082,26 @@ export default function FinanceScreen() {
                                     <View style={styles.progressTrack}>
                                         <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: goal.is_emergency_fund ? colors.danger : colors.success }]} />
                                     </View>
+                                    <View style={styles.transferActionsRow}>
+                                        <Button label="Withdraw" variant="secondary" size="sm" onPress={() => openTransferModal(goal, 'goal', 'withdraw')} style={styles.transferButton} />
+                                        <Button label="Deposit" size="sm" onPress={() => openTransferModal(goal, 'goal', 'deposit')} style={styles.transferButton} />
+                                        <Button label="Adjust" variant="ghost" size="sm" onPress={() => openTransferModal(goal, 'goal', 'adjust')} style={styles.transferButton} />
+                                    </View>
+                                    {transferHistory.length ? (
+                                        <View style={styles.transferHistoryList}>
+                                            {transferHistory.map((entry) => (
+                                                <View key={entry.id} style={styles.transferHistoryRow}>
+                                                    <View style={styles.transferHistoryInfo}>
+                                                        <View style={[styles.transferHistoryDot, { backgroundColor: entry.direction === 'deposit' ? colors.danger : colors.success }]} />
+                                                        <Text style={styles.transferHistoryLabel}>
+                                                            {entry.direction === 'deposit' ? 'Deposit' : 'Withdraw'} · {format(parseISO(entry.date), 'MMM d')}
+                                                        </Text>
+                                                    </View>
+                                                    <Text style={styles.transferHistoryAmount}>{currency(entry.amount)}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    ) : null}
                                 </Card>
                             );
                         })}
@@ -1092,6 +1326,70 @@ export default function FinanceScreen() {
                             label={vaultEditing.mode === 'edit' ? 'Save' : 'Create'}
                             onPress={submitVaultItem}
                             loading={submittingVaultItem}
+                        />
+                    </View>
+                </ScrollView>
+            </Modal>
+
+            <Modal visible={transferModalVisible} onClose={closeTransferModal}>
+                <ScrollView showsVerticalScrollIndicator={false}>
+                    <Text style={styles.modalTitle}>
+                        {transferState.action === 'deposit'
+                            ? 'Deposit into'
+                            : transferState.action === 'withdraw'
+                                ? 'Withdraw from'
+                                : 'Adjust'} {transferState.itemName}
+                    </Text>
+                    <Text style={styles.modalSubtitle}>
+                        {transferState.action === 'deposit'
+                            ? `Available in wallet: ${currency(walletBalance)}`
+                            : `Available in ${transferState.itemName}: ${currency(transferState.currentAmount)}`}
+                    </Text>
+
+                    <PillFilter
+                        options={[
+                            { id: 'deposit', label: 'Deposit' },
+                            { id: 'withdraw', label: 'Withdraw' },
+                            { id: 'adjust', label: 'Adjust' },
+                        ]}
+                        selectedId={transferState.action}
+                        onSelect={(id) => setTransferState((current) => ({
+                            ...current,
+                            action: id as 'deposit' | 'withdraw' | 'adjust',
+                        }))}
+                    />
+
+                    <FormField
+                        label="Amount"
+                        keyboardType="decimal-pad"
+                        value={transferAmount}
+                        onChangeText={setTransferAmount}
+                        placeholder="0.00"
+                    />
+
+                    <View style={styles.transferInfoCard}>
+                        <Text style={styles.transferInfoTitle}>Transfer impact</Text>
+                        <Text style={styles.transferInfoText}>
+                            {transferState.action === 'deposit'
+                                ? 'This moves money out of wallet and into the selected vault item.'
+                                : transferState.action === 'withdraw'
+                                    ? 'This moves money back into wallet from the selected vault item.'
+                                    : 'This changes the reserved balance only and does not affect wallet totals.'}
+                        </Text>
+                    </View>
+
+                    <View style={styles.modalActions}>
+                        <Button label="Cancel" variant="ghost" onPress={closeTransferModal} />
+                        <Button
+                            label={
+                                transferState.action === 'deposit'
+                                    ? 'Confirm deposit'
+                                    : transferState.action === 'withdraw'
+                                        ? 'Confirm withdrawal'
+                                        : 'Confirm adjustment'
+                            }
+                            onPress={submitTransfer}
+                            loading={submittingTransfer}
                         />
                     </View>
                 </ScrollView>
@@ -1424,6 +1722,27 @@ const styles = StyleSheet.create({
     vaultGrid: {
         gap: spacing.sm,
     },
+    feedbackCard: {
+        paddingVertical: spacing.md,
+    },
+    feedbackCardSuccess: {
+        borderColor: colors.primary,
+        backgroundColor: colors.primaryLight,
+    },
+    feedbackCardError: {
+        borderColor: colors.danger,
+        backgroundColor: colors.dangerLight,
+    },
+    feedbackRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
+    feedbackText: {
+        flex: 1,
+        fontSize: typography.sizes.sm,
+        color: colors.textPrimary,
+    },
     vaultItemCard: {
         gap: spacing.md,
     },
@@ -1464,6 +1783,43 @@ const styles = StyleSheet.create({
         fontSize: typography.sizes.lg,
         fontWeight: typography.weights.bold,
         color: colors.textPrimary,
+    },
+    transferActionsRow: {
+        flexDirection: 'row',
+        gap: spacing.sm,
+    },
+    transferButton: {
+        flex: 1,
+    },
+    transferHistoryList: {
+        gap: spacing.xs,
+    },
+    transferHistoryRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: spacing.sm,
+        paddingTop: spacing.xs,
+    },
+    transferHistoryInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+        flex: 1,
+    },
+    transferHistoryDot: {
+        width: 8,
+        height: 8,
+        borderRadius: radius.pill,
+    },
+    transferHistoryLabel: {
+        fontSize: typography.sizes.xs,
+        color: colors.textSecondary,
+    },
+    transferHistoryAmount: {
+        fontSize: typography.sizes.xs,
+        color: colors.textPrimary,
+        fontWeight: typography.weights.medium,
     },
     recordCard: {
         flexDirection: 'row',
@@ -1566,6 +1922,23 @@ const styles = StyleSheet.create({
     switchDescription: {
         fontSize: typography.sizes.sm,
         color: colors.textSecondary,
+    },
+    transferInfoCard: {
+        backgroundColor: colors.surfaceLayered,
+        borderRadius: radius.md,
+        padding: spacing.md,
+        marginBottom: spacing.md,
+        gap: spacing.xs,
+    },
+    transferInfoTitle: {
+        fontSize: typography.sizes.sm,
+        fontWeight: typography.weights.semibold,
+        color: colors.textPrimary,
+    },
+    transferInfoText: {
+        fontSize: typography.sizes.sm,
+        color: colors.textSecondary,
+        lineHeight: typography.lineHeights.sm,
     },
     modalActions: {
         flexDirection: 'row',
