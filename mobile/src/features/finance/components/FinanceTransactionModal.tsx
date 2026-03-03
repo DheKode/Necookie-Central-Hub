@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Button, FormField, Modal, PillFilter } from '../../../../components/ui';
 import { colors, radius, spacing, typography } from '../../../../theme';
 import { CATEGORIES, TRANSACTION_TYPES } from '../constants';
@@ -29,63 +29,61 @@ export function FinanceTransactionModal({
     onSubmit,
 }: Props) {
     return (
-        <Modal visible={visible} onClose={onClose}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-                <Text style={styles.title}>Add transaction</Text>
-                <Text style={styles.subtitle}>Capture the same core inputs the web flow uses with cleaner amount and date handling.</Text>
+        <Modal visible={visible} onClose={onClose} scrollable>
+            <Text style={styles.title}>Add transaction</Text>
+            <Text style={styles.subtitle}>Capture the same core inputs the web flow uses with cleaner amount and date handling.</Text>
 
-                <PillFilter
-                    options={TRANSACTION_TYPES.map((item) => ({ id: item.id, label: item.label }))}
-                    selectedId={form.type}
-                    onSelect={(id) => onChange((current) => ({
-                        ...current,
-                        type: id as 'income' | 'expense',
-                        category: CATEGORIES[id as 'income' | 'expense'][0],
-                    }))}
-                />
+            <PillFilter
+                options={TRANSACTION_TYPES.map((item) => ({ id: item.id, label: item.label }))}
+                selectedId={form.type}
+                onSelect={(id) => onChange((current) => ({
+                    ...current,
+                    type: id as 'income' | 'expense',
+                    category: CATEGORIES[id as 'income' | 'expense'][0],
+                }))}
+            />
 
-                <FormField
-                    label="Amount"
-                    keyboardType="decimal-pad"
-                    value={form.amount}
-                    onChangeText={onChangeAmount}
-                    placeholder="0.00"
-                    error={errors.amount}
-                />
-                <FormField label="Description" value={form.description} onChangeText={(value) => onChange((current) => ({ ...current, description: value }))} placeholder="Optional note" />
-                <FormField
-                    label="Date"
-                    value={form.date}
-                    onChangeText={onChangeDate}
-                    placeholder="YYYY-MM-DD"
-                    autoCapitalize="none"
-                    keyboardType="number-pad"
-                    maxLength={10}
-                    error={errors.date}
-                />
+            <FormField
+                label="Amount"
+                keyboardType="decimal-pad"
+                value={form.amount}
+                onChangeText={onChangeAmount}
+                placeholder="0.00"
+                error={errors.amount}
+            />
+            <FormField label="Description" value={form.description} onChangeText={(value) => onChange((current) => ({ ...current, description: value }))} placeholder="Optional note" />
+            <FormField
+                label="Date"
+                value={form.date}
+                onChangeText={onChangeDate}
+                placeholder="YYYY-MM-DD"
+                autoCapitalize="none"
+                keyboardType="number-pad"
+                maxLength={10}
+                error={errors.date}
+            />
 
-                <Text style={styles.sectionLabel}>Category</Text>
-                <View style={styles.categoryWrap}>
-                    {CATEGORIES[form.type].map((category) => {
-                        const selected = category === form.category;
+            <Text style={styles.sectionLabel}>Category</Text>
+            <View style={styles.categoryWrap}>
+                {CATEGORIES[form.type].map((category) => {
+                    const selected = category === form.category;
 
-                        return (
-                            <TouchableOpacity
-                                key={category}
-                                style={[styles.categoryPill, selected && styles.categoryPillSelected]}
-                                onPress={() => onChange((current) => ({ ...current, category }))}
-                            >
-                                <Text style={[styles.categoryText, selected && styles.categoryTextSelected]}>{category}</Text>
-                            </TouchableOpacity>
-                        );
-                    })}
-                </View>
+                    return (
+                        <TouchableOpacity
+                            key={category}
+                            style={[styles.categoryPill, selected && styles.categoryPillSelected]}
+                            onPress={() => onChange((current) => ({ ...current, category }))}
+                        >
+                            <Text style={[styles.categoryText, selected && styles.categoryTextSelected]}>{category}</Text>
+                        </TouchableOpacity>
+                    );
+                })}
+            </View>
 
-                <View style={styles.actions}>
-                    <Button label="Cancel" variant="ghost" onPress={onClose} />
-                    <Button label="Save" onPress={onSubmit} loading={submitting} />
-                </View>
-            </ScrollView>
+            <View style={styles.actions}>
+                <Button label="Cancel" variant="ghost" onPress={onClose} />
+                <Button label="Save" onPress={onSubmit} loading={submitting} />
+            </View>
         </Modal>
     );
 }

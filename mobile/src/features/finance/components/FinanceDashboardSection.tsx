@@ -1,7 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { Button, Card, SectionHeader } from '../../../../components/ui';
+import { ActionGroup, Button, Card, MetricCard, SectionHeader } from '../../../../components/ui';
 import { colors, radius, spacing, typography } from '../../../../theme';
 import { CATEGORY_COLORS } from '../constants';
 import { currency } from '../utils';
@@ -39,17 +38,20 @@ export function FinanceDashboardSection({
                         <Text style={styles.heroAmount}>{currency(stats.totalBalance)}</Text>
                         <Text style={styles.heroSubtext}>Track your flow, savings, and spending rhythm.</Text>
                     </View>
-                    <View style={styles.heroActions}>
-                        <Button label="Add Income" onPress={() => onOpenTransactionModal('income')} style={styles.heroButton} />
-                        <Button label="Add Expense" variant="danger" onPress={() => onOpenTransactionModal('expense')} style={styles.heroButton} />
-                    </View>
+                    <ActionGroup
+                        actions={[
+                            { id: 'income', label: 'Add Income', icon: 'arrow-down-outline', onPress: () => onOpenTransactionModal('income') },
+                            { id: 'expense', label: 'Add Expense', icon: 'arrow-up-outline', tint: colors.danger, background: colors.dangerLight, onPress: () => onOpenTransactionModal('expense') },
+                        ]}
+                        style={styles.heroActions}
+                    />
                 </View>
             </Card>
 
             <View style={styles.statGrid}>
-                <StatCard icon="trending-down-outline" color={colors.danger} background={colors.dangerLight} label="Today's Burn" value={currency(stats.expenseToday)} />
-                <StatCard icon="calendar-outline" color={colors.warning} background={colors.warningLight} label="Weekly Burn" value={currency(stats.expenseWeek)} />
-                <StatCard icon="trending-up-outline" color={colors.success} background={colors.primaryLight} label="Income Today" value={currency(stats.incomeToday)} />
+                <MetricCard icon="trending-down-outline" label="Today's Burn" value={currency(stats.expenseToday)} tone="danger" />
+                <MetricCard icon="calendar-outline" label="Weekly Burn" value={currency(stats.expenseWeek)} tone="warning" />
+                <MetricCard icon="trending-up-outline" label="Income Today" value={currency(stats.incomeToday)} tone="success" />
             </View>
 
             <Card variant="outline">
@@ -115,26 +117,6 @@ export function FinanceDashboardSection({
     );
 }
 
-type StatCardProps = {
-    icon: keyof typeof Ionicons.glyphMap;
-    color: string;
-    background: string;
-    label: string;
-    value: string;
-};
-
-function StatCard({ icon, color, background, label, value }: StatCardProps) {
-    return (
-        <Card variant="outline" style={styles.statCard}>
-            <View style={[styles.statIcon, { backgroundColor: background }]}>
-                <Ionicons name={icon} size={18} color={color} />
-            </View>
-            <Text style={styles.statLabel}>{label}</Text>
-            <Text style={styles.statValue}>{value}</Text>
-        </Card>
-    );
-}
-
 const styles = StyleSheet.create({
     sectionStack: { gap: spacing.md },
     heroCard: {
@@ -162,29 +144,11 @@ const styles = StyleSheet.create({
         fontSize: typography.sizes.sm,
         lineHeight: typography.lineHeights.sm,
     },
-    heroActions: { flexDirection: 'row', gap: spacing.sm },
-    heroButton: { flex: 1 },
+    heroActions: {
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        borderColor: 'rgba(255,255,255,0.12)',
+    },
     statGrid: { gap: spacing.sm },
-    statCard: { gap: spacing.sm },
-    statIcon: {
-        width: 34,
-        height: 34,
-        borderRadius: radius.md,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    statLabel: {
-        fontSize: typography.sizes.xs,
-        textTransform: 'uppercase',
-        color: colors.textSecondary,
-        fontWeight: typography.weights.bold,
-        letterSpacing: 0.8,
-    },
-    statValue: {
-        fontSize: typography.sizes.xl,
-        color: colors.textPrimary,
-        fontWeight: typography.weights.bold,
-    },
     listGap: { gap: spacing.md },
     rowGap: { gap: spacing.xs },
     rowBetween: {

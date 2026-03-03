@@ -79,6 +79,7 @@ export const useFinanceHub = () => {
     const [goals, setGoals] = useState<GoalRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [submittingTransaction, setSubmittingTransaction] = useState(false);
     const [submittingVaultItem, setSubmittingVaultItem] = useState(false);
     const [submittingTransfer, setSubmittingTransfer] = useState(false);
@@ -107,6 +108,7 @@ export const useFinanceHub = () => {
         }
 
         try {
+            setError(null);
             const [financeData, fundData, goalData] = await Promise.all([
                 dataService.fetchFinanceRecords(),
                 dataService.fetchFunds(),
@@ -118,7 +120,10 @@ export const useFinanceHub = () => {
             setGoals(((goalData ?? []) as any[]).map(normalizeGoalRecord));
         } catch (error) {
             console.error('Failed to load finance data:', error);
-            Alert.alert('Error', 'Failed to load finance data.');
+            setError('Finance data could not be loaded.');
+            if (!isRefresh) {
+                Alert.alert('Error', 'Failed to load finance data.');
+            }
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -601,6 +606,7 @@ export const useFinanceHub = () => {
         goals,
         loading,
         refreshing,
+        error,
         submittingTransaction,
         submittingVaultItem,
         submittingTransfer,
