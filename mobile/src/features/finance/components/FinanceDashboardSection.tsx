@@ -55,7 +55,7 @@ export function FinanceDashboardSection({
             </View>
 
             <Card variant="outline">
-                <SectionHeader title="Monthly budget" />
+                <SectionHeader title="Monthly budget" description="See how each category is pacing against its limit." />
                 <View style={styles.listGap}>
                     {budgetStats.map((item) => (
                         <View key={item.category} style={styles.rowGap}>
@@ -72,7 +72,7 @@ export function FinanceDashboardSection({
             </Card>
 
             <Card variant="outline">
-                <SectionHeader title="Spend breakdown" />
+                <SectionHeader title="Spend breakdown" description="Keep the highest-cost categories visible at a glance." />
                 {categoryData.entries.length === 0 ? (
                     <Text style={styles.secondaryText}>No expense data yet.</Text>
                 ) : (
@@ -100,7 +100,7 @@ export function FinanceDashboardSection({
             </Card>
 
             <Card variant="outline">
-                <SectionHeader title="Daily trend" actionLabel="Last 7 days" />
+                <SectionHeader title="Daily trend" description="A quick visual of how spending has moved across the last week." actionLabel="Last 7 days" />
                 <View style={styles.trendChart}>
                     {dailyTrend.map((item) => (
                         <View key={item.label} style={styles.trendBarWrap}>

@@ -1,25 +1,19 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { EmptyState } from '../../components/ui';
-import { colors } from '../../theme';
+import { EmptyState, Screen, ScreenContent, ScreenHeader } from '../../components/ui';
 
 export default function TabTwoScreen() {
   return (
-    <View style={styles.container}>
-      <EmptyState
-        iconName="book-outline"
-        title="Journal"
-        description="Your journal entries will appear here."
-        actionLabel="Write an entry"
-        onActionPress={() => { }}
-      />
-    </View>
+    <Screen>
+      <ScreenHeader eyebrow="Journal" title="Journal" subtitle="Your journal entries will appear here." />
+      <ScreenContent>
+        <EmptyState
+          iconName="book-outline"
+          title="Journal"
+          description="Your journal entries will appear here."
+          actionLabel="Write an entry"
+          onActionPress={() => { }}
+        />
+      </ScreenContent>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-});

@@ -1,7 +1,7 @@
 import React from 'react';
 import { RefreshControl, ScrollView, StyleSheet } from 'react-native';
 import { colors, spacing } from '../../theme';
-import { ErrorState, FAB, LoadingState, PillFilter, Screen, ScreenContent, ScreenHeader, ScreenSection } from '../../components/ui';
+import { ErrorState, FAB, LoadingState, PillFilter, Screen, ScreenContent, ScreenHeader, ScreenSection, screenLayout } from '../../components/ui';
 import { FINANCE_TABS } from '../../src/features/finance/constants';
 import { FinanceCalendarSection } from '../../src/features/finance/components/FinanceCalendarSection';
 import { FinanceDashboardSection } from '../../src/features/finance/components/FinanceDashboardSection';
@@ -35,11 +35,11 @@ export default function FinanceScreen() {
             />
             <ScreenContent>
             <ScrollView
-                contentContainerStyle={styles.content}
+                contentContainerStyle={[screenLayout.scrollContent, styles.content]}
                 refreshControl={<RefreshControl refreshing={finance.refreshing} onRefresh={finance.onRefresh} tintColor={colors.primary} />}
                 showsVerticalScrollIndicator={false}
             >
-                <ScreenSection style={styles.contentSection}>
+                <ScreenSection>
                     <PillFilter
                         options={FINANCE_TABS.map((tab) => ({ id: tab.id, label: tab.label }))}
                         selectedId={finance.activeTab}
@@ -159,11 +159,7 @@ export default function FinanceScreen() {
 
 const styles = StyleSheet.create({
     content: {
-        paddingBottom: spacing.xxxl + 32,
         gap: spacing.lg,
-    },
-    contentSection: {
-        marginTop: spacing.md,
     },
     loadingStateWrap: {
         flex: 1,

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, FlatList, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors, spacing, typography } from '../../theme';
-import { Card, EmptyState, FAB, LoadingState, Modal, PillFilter, Screen, ScreenContent, ScreenHeader, ScreenSection, SectionHeader } from '../../components/ui';
+import { Button, Card, EmptyState, ErrorState, FAB, LoadingState, Modal, PillFilter, Screen, ScreenContent, ScreenHeader, ScreenSection, SectionHeader, screenLayout } from '../../components/ui';
 import { dataService } from '../../src/services/dataService';
 import { format } from 'date-fns';
 import * as Haptics from 'expo-haptics';
@@ -88,11 +88,17 @@ export default function JournalScreen() {
                     data={entries}
                     renderItem={renderEntry}
                     keyExtractor={(item) => item.id.toString()}
-                    contentContainerStyle={styles.listContent}
+                    contentContainerStyle={screenLayout.listContent}
                     showsVerticalScrollIndicator={false}
                     ListHeaderComponent={
-                        <ScreenSection style={styles.headerSection}>
-                            <SectionHeader title="Recent Entries" actionLabel="Write" onActionPress={() => setIsWriting(true)} />
+                        <ScreenSection>
+                            <SectionHeader
+                                eyebrow="Reflect"
+                                title="Recent entries"
+                                description="The writing flow and the reading flow now share the same spacing and controls."
+                                actionLabel="Write"
+                                onActionPress={() => setIsWriting(true)}
+                            />
                         </ScreenSection>
                     }
                     refreshControl={
@@ -102,13 +108,7 @@ export default function JournalScreen() {
                         loading ? (
                             <LoadingState title="Loading journal" description="Gathering your recent reflections." />
                         ) : error ? (
-                            <EmptyState
-                                iconName="alert-circle-outline"
-                                title="Journal unavailable"
-                                description={error}
-                                actionLabel="Try again"
-                                onActionPress={fetchData}
-                            />
+                            <ErrorState description={error} onActionPress={fetchData} />
                         ) : (
                             <EmptyState
                                 iconName="book-outline"
@@ -124,14 +124,19 @@ export default function JournalScreen() {
 
             <FAB iconName="create-outline" onPress={() => setIsWriting(true)} accessibilityLabel="New journal entry" />
 
-            <Modal visible={isWriting} onClose={() => setIsWriting(false)} scrollable>
-                <View style={styles.modalHeader}>
-                    <Text style={styles.writingTitle}>New Entry</Text>
-                    <TouchableOpacity onPress={handleAddEntry}>
-                        <Text style={styles.saveBtn}>Save</Text>
-                    </TouchableOpacity>
-                </View>
-
+            <Modal
+                visible={isWriting}
+                onClose={() => setIsWriting(false)}
+                scrollable
+                title="New entry"
+                subtitle="Capture a short reflection in the same sheet pattern used across the app."
+                footer={(
+                    <View style={styles.modalActions}>
+                        <Button label="Cancel" variant="ghost" onPress={() => setIsWriting(false)} />
+                        <Button label="Save" onPress={handleAddEntry} disabled={!newEntry.trim()} />
+                    </View>
+                )}
+            >
                 <View style={styles.moodPicker}>
                     <Text style={styles.label}>How are you feeling?</Text>
                     <PillFilter options={MOODS} selectedId={selectedMood} onSelect={setSelectedMood} />
@@ -152,13 +157,6 @@ export default function JournalScreen() {
 }
 
 const styles = StyleSheet.create({
-    listContent: {
-        paddingBottom: spacing.xxxl,
-    },
-    headerSection: {
-        marginTop: spacing.md,
-        marginBottom: spacing.sm,
-    },
     entryCard: {
         padding: spacing.lg,
         marginBottom: spacing.md,
@@ -185,20 +183,10 @@ const styles = StyleSheet.create({
         color: colors.textPrimary,
         lineHeight: typography.lineHeights.md,
     },
-    modalHeader: {
+    modalActions: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    writingTitle: {
-        fontSize: typography.sizes.lg,
-        fontWeight: typography.weights.semibold,
-        color: colors.textPrimary,
-    },
-    saveBtn: {
-        fontSize: typography.sizes.md,
-        fontWeight: typography.weights.bold,
-        color: colors.primary,
+        justifyContent: 'flex-end',
+        gap: spacing.sm,
     },
     moodPicker: {
         gap: spacing.sm,

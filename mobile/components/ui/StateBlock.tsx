@@ -1,6 +1,7 @@
 import React from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { colors, spacing, typography } from '../../theme';
+import { colors, radius, spacing, typography } from '../../theme';
 import { Button } from './Button';
 import { Card } from './Card';
 
@@ -22,7 +23,9 @@ export function LoadingState({
 }: LoadingStateProps) {
     return (
         <Card variant="outline" style={styles.card}>
-            <ActivityIndicator size="small" color={colors.primary} />
+            <View style={styles.iconWrap}>
+                <ActivityIndicator size="small" color={colors.primary} />
+            </View>
             <View style={styles.copy}>
                 <Text style={styles.title}>{title}</Text>
                 <Text style={styles.description}>{description}</Text>
@@ -39,6 +42,9 @@ export function ErrorState({
 }: ErrorStateProps) {
     return (
         <Card variant="outline" style={[styles.card, styles.errorCard]}>
+            <View style={[styles.iconWrap, styles.errorIconWrap]}>
+                <Ionicons name="alert-circle-outline" size={20} color={colors.danger} />
+            </View>
             <View style={styles.copy}>
                 <Text style={styles.title}>{title}</Text>
                 <Text style={styles.description}>{description}</Text>
@@ -53,7 +59,19 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: spacing.xl,
+        paddingHorizontal: spacing.lg,
         gap: spacing.md,
+    },
+    iconWrap: {
+        width: 52,
+        height: 52,
+        borderRadius: radius.lg,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.primaryLight,
+    },
+    errorIconWrap: {
+        backgroundColor: colors.surface,
     },
     errorCard: {
         borderColor: colors.danger,
@@ -74,6 +92,6 @@ const styles = StyleSheet.create({
         lineHeight: typography.lineHeights.sm,
         color: colors.textSecondary,
         textAlign: 'center',
-        maxWidth: 260,
+        maxWidth: 280,
     },
 });

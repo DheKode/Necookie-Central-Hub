@@ -29,10 +29,19 @@ export function FinanceTransactionModal({
     onSubmit,
 }: Props) {
     return (
-        <Modal visible={visible} onClose={onClose} scrollable>
-            <Text style={styles.title}>Add transaction</Text>
-            <Text style={styles.subtitle}>Capture the same core inputs the web flow uses with cleaner amount and date handling.</Text>
-
+        <Modal
+            visible={visible}
+            onClose={onClose}
+            scrollable
+            title="Add transaction"
+            subtitle="Capture the same core inputs the web flow uses with cleaner amount and date handling."
+            footer={(
+                <View style={styles.actions}>
+                    <Button label="Cancel" variant="ghost" onPress={onClose} />
+                    <Button label="Save" onPress={onSubmit} loading={submitting} />
+                </View>
+            )}
+        >
             <PillFilter
                 options={TRANSACTION_TYPES.map((item) => ({ id: item.id, label: item.label }))}
                 selectedId={form.type}
@@ -79,28 +88,11 @@ export function FinanceTransactionModal({
                     );
                 })}
             </View>
-
-            <View style={styles.actions}>
-                <Button label="Cancel" variant="ghost" onPress={onClose} />
-                <Button label="Save" onPress={onSubmit} loading={submitting} />
-            </View>
         </Modal>
     );
 }
 
 const styles = StyleSheet.create({
-    title: {
-        fontSize: typography.sizes.xl,
-        fontWeight: typography.weights.bold,
-        color: colors.textPrimary,
-        marginBottom: spacing.xs,
-    },
-    subtitle: {
-        fontSize: typography.sizes.sm,
-        color: colors.textSecondary,
-        marginBottom: spacing.md,
-        lineHeight: typography.lineHeights.sm,
-    },
     sectionLabel: {
         fontSize: typography.sizes.sm,
         color: colors.textSecondary,

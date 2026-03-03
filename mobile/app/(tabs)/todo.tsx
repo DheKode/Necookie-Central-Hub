@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, Text, FlatList, RefreshControl, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '../../theme';
-import { Card, ErrorState, FAB, PillFilter, EmptyState, LoadingState, Screen, ScreenContent, ScreenHeader, ScreenSection, SectionHeader } from '../../components/ui';
+import { Card, ErrorState, FAB, PillFilter, EmptyState, LoadingState, Screen, ScreenContent, ScreenHeader, ScreenSection, SectionHeader, screenLayout } from '../../components/ui';
 import { dataService } from '../../src/services/dataService';
 import { format } from 'date-fns';
 import * as Haptics from 'expo-haptics';
@@ -105,11 +105,15 @@ export default function TodoScreen() {
                 data={filteredTasks}
                 renderItem={renderTask}
                 keyExtractor={item => item.id.toString()}
-                contentContainerStyle={styles.listContent}
+                contentContainerStyle={screenLayout.listContent}
                 showsVerticalScrollIndicator={false}
                 ListHeaderComponent={
-                    <ScreenSection style={styles.headerSection}>
-                        <SectionHeader title="Status" />
+                    <ScreenSection>
+                        <SectionHeader
+                            eyebrow="Filter"
+                            title="Status"
+                            description="Keep pending and completed work in the same list rhythm."
+                        />
                         <PillFilter
                             options={[
                                 { id: 'All', label: 'All' },
@@ -146,13 +150,6 @@ export default function TodoScreen() {
 }
 
 const styles = StyleSheet.create({
-    listContent: {
-        paddingBottom: spacing.xxxl,
-    },
-    headerSection: {
-        marginTop: spacing.md,
-        marginBottom: spacing.sm,
-    },
     taskCard: {
         flexDirection: 'row',
         alignItems: 'center',

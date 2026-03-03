@@ -30,20 +30,37 @@ export function FinanceVaultTransferModal({
     onSubmit,
 }: Props) {
     return (
-        <Modal visible={visible} onClose={onClose} scrollable>
-            <Text style={styles.title}>
-                {transferState.action === 'deposit'
-                    ? 'Deposit into'
-                    : transferState.action === 'withdraw'
-                        ? 'Withdraw from'
-                        : 'Adjust'} {transferState.itemName}
-            </Text>
-            <Text style={styles.subtitle}>
-                {transferState.action === 'deposit'
+        <Modal
+            visible={visible}
+            onClose={onClose}
+            scrollable
+            title={`${transferState.action === 'deposit'
+                ? 'Deposit into'
+                : transferState.action === 'withdraw'
+                    ? 'Withdraw from'
+                    : 'Adjust'} ${transferState.itemName}`}
+            subtitle={
+                transferState.action === 'deposit'
                     ? `Available in wallet: ${currency(walletBalance)}`
-                    : `Available in ${transferState.itemName}: ${currency(transferState.currentAmount)}`}
-            </Text>
-
+                    : `Available in ${transferState.itemName}: ${currency(transferState.currentAmount)}`
+            }
+            footer={(
+                <View style={styles.actions}>
+                    <Button label="Cancel" variant="ghost" onPress={onClose} />
+                    <Button
+                        label={
+                            transferState.action === 'deposit'
+                                ? 'Confirm deposit'
+                                : transferState.action === 'withdraw'
+                                    ? 'Confirm withdrawal'
+                                    : 'Confirm adjustment'
+                        }
+                        onPress={onSubmit}
+                        loading={submitting}
+                    />
+                </View>
+            )}
+        >
             <PillFilter
                 options={TRANSFER_TYPES.map((item) => ({ id: item.id, label: item.label }))}
                 selectedId={transferState.action}
@@ -62,38 +79,11 @@ export function FinanceVaultTransferModal({
                             : 'This changes the reserved balance only and does not affect wallet totals.'}
                 </Text>
             </View>
-
-            <View style={styles.actions}>
-                <Button label="Cancel" variant="ghost" onPress={onClose} />
-                <Button
-                    label={
-                        transferState.action === 'deposit'
-                            ? 'Confirm deposit'
-                            : transferState.action === 'withdraw'
-                                ? 'Confirm withdrawal'
-                                : 'Confirm adjustment'
-                    }
-                    onPress={onSubmit}
-                    loading={submitting}
-                />
-            </View>
         </Modal>
     );
 }
 
 const styles = StyleSheet.create({
-    title: {
-        fontSize: typography.sizes.xl,
-        fontWeight: typography.weights.bold,
-        color: colors.textPrimary,
-        marginBottom: spacing.xs,
-    },
-    subtitle: {
-        fontSize: typography.sizes.sm,
-        color: colors.textSecondary,
-        marginBottom: spacing.md,
-        lineHeight: typography.lineHeights.sm,
-    },
     infoCard: {
         backgroundColor: colors.surfaceLayered,
         borderRadius: radius.md,
@@ -115,6 +105,5 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'flex-end',
         gap: spacing.sm,
-        marginTop: spacing.sm,
     },
 });

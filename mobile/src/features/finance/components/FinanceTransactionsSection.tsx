@@ -41,7 +41,12 @@ export function FinanceTransactionsSection({
     return (
         <View style={styles.sectionStack}>
             <Card variant="outline">
-                <SectionHeader title="Recent transactions" actionLabel="Add" onActionPress={() => onOpenTransactionModal('expense')} />
+                <SectionHeader
+                    title="Recent transactions"
+                    description="Filter and scan the ledger with the same controls used elsewhere in the mobile app."
+                    actionLabel="Add"
+                    onActionPress={() => onOpenTransactionModal('expense')}
+                />
 
                 <View style={styles.controls}>
                     <FormField

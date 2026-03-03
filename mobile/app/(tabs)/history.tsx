@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, Text, FlatList, RefreshControl } from 'react-native';
 import { colors, spacing, typography } from '../../theme';
-import { Card, EmptyState, ErrorState, ListRow, LoadingState, Screen, ScreenContent, ScreenHeader, ScreenSection, SectionHeader } from '../../components/ui';
+import { Card, EmptyState, ErrorState, ListRow, LoadingState, Screen, ScreenContent, ScreenHeader, SectionHeader, screenLayout } from '../../components/ui';
 import { dataService } from '../../src/services/dataService';
 import { format, isSameDay } from 'date-fns';
 
@@ -87,15 +87,14 @@ export default function HistoryScreen() {
             <FlatList
                 data={groupedData}
                 keyExtractor={item => item.title}
-                contentContainerStyle={styles.listContent}
+                contentContainerStyle={screenLayout.listContent}
                 showsVerticalScrollIndicator={false}
-                ListHeaderComponent={<View style={styles.headerSection} />}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
                 }
                 renderItem={({ item }) => (
                     <View style={styles.groupContainer}>
-                        <SectionHeader title={item.title} />
+                        <SectionHeader eyebrow="Day" title={item.title} />
                         <Card style={styles.groupCard}>
                             {item.data.map((historyItem, index) => (
                                 <React.Fragment key={historyItem.id || index}>
@@ -126,12 +125,6 @@ export default function HistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-    listContent: {
-        paddingBottom: spacing.xxxl,
-    },
-    headerSection: {
-        marginTop: spacing.md,
-    },
     groupContainer: {
         marginBottom: spacing.md,
     },

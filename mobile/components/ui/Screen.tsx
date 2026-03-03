@@ -54,6 +54,25 @@ export function ScreenSection({ children, style }: ScreenSectionProps) {
     return <View style={[styles.section, style]}>{children}</View>;
 }
 
+export const screenLayout = StyleSheet.create({
+    scrollContent: {
+        paddingTop: spacing.md,
+        paddingBottom: spacing.xxxl + 32,
+        gap: spacing.lg,
+    },
+    listContent: {
+        paddingTop: spacing.md,
+        paddingBottom: spacing.xxxl + 32,
+        gap: spacing.md,
+    },
+    cardStack: {
+        gap: spacing.sm,
+    },
+    dividerInset: {
+        marginLeft: 56,
+    },
+});
+
 const styles = StyleSheet.create({
     screen: {
         flex: 1,
@@ -102,7 +121,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: spacing.md,
     },
     section: {
-        marginTop: spacing.lg,
         gap: spacing.sm,
     },
 });

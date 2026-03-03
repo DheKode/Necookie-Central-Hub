@@ -31,14 +31,23 @@ export function FinanceVaultItemModal({
     onSubmit,
 }: Props) {
     return (
-        <Modal visible={visible} onClose={onClose} scrollable>
-            <Text style={styles.title}>{editing.mode === 'edit' ? 'Edit vault item' : 'Create vault item'}</Text>
-            <Text style={styles.subtitle}>
-                {editing.mode === 'edit'
+        <Modal
+            visible={visible}
+            onClose={onClose}
+            scrollable
+            title={editing.mode === 'edit' ? 'Edit vault item' : 'Create vault item'}
+            subtitle={
+                editing.mode === 'edit'
                     ? 'Update the details for this fund or goal.'
-                    : 'Start with funds and goals first; transfer mechanics can layer in after this.'}
-            </Text>
-
+                    : 'Start with funds and goals first; transfer mechanics can layer in after this.'
+            }
+            footer={(
+                <View style={styles.actions}>
+                    <Button label="Cancel" variant="ghost" onPress={onClose} />
+                    <Button label={editing.mode === 'edit' ? 'Save' : 'Create'} onPress={onSubmit} loading={submitting} />
+                </View>
+            )}
+        >
             <PillFilter
                 options={CREATE_TYPES.map((item) => ({ id: item.id, label: item.label }))}
                 selectedId={form.type}
@@ -93,28 +102,11 @@ export function FinanceVaultItemModal({
                     </View>
                 </>
             ) : null}
-
-            <View style={styles.actions}>
-                <Button label="Cancel" variant="ghost" onPress={onClose} />
-                <Button label={editing.mode === 'edit' ? 'Save' : 'Create'} onPress={onSubmit} loading={submitting} />
-            </View>
         </Modal>
     );
 }
 
 const styles = StyleSheet.create({
-    title: {
-        fontSize: typography.sizes.xl,
-        fontWeight: typography.weights.bold,
-        color: colors.textPrimary,
-        marginBottom: spacing.xs,
-    },
-    subtitle: {
-        fontSize: typography.sizes.sm,
-        color: colors.textSecondary,
-        marginBottom: spacing.md,
-        lineHeight: typography.lineHeights.sm,
-    },
     switchRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -140,6 +132,5 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'flex-end',
         gap: spacing.sm,
-        marginTop: spacing.sm,
     },
 });

@@ -103,7 +103,10 @@ export function FinanceCalendarSection({
             </Card>
 
             <Card variant="outline">
-                <SectionHeader title={`Activity for ${format(selectedDate, 'MMMM d')}`} />
+                <SectionHeader
+                    title={`Activity for ${format(selectedDate, 'MMMM d')}`}
+                    description="Daily movement stays in one compact summary and transaction list."
+                />
                 {selectedDay ? (
                     <View style={styles.summaryRow}>
                         <View style={[styles.summaryChip, styles.summaryChipIncome]}>

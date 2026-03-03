@@ -30,6 +30,7 @@ type ActionGroupProps = {
     actions: Array<{
         id: string;
         label: string;
+        description?: string;
         icon: keyof typeof Ionicons.glyphMap;
         tint?: string;
         background?: string;
@@ -112,7 +113,10 @@ export function ActionGroup({ actions, style }: ActionGroupProps) {
                         <View style={[styles.actionIcon, { backgroundColor: action.background ?? colors.primaryLight }]}>
                             <Ionicons name={action.icon} size={20} color={action.tint ?? colors.primary} />
                         </View>
-                        <Text style={styles.actionLabel}>{action.label}</Text>
+                        <View style={styles.actionCopy}>
+                            <Text style={styles.actionLabel}>{action.label}</Text>
+                            {action.description ? <Text style={styles.actionDescription}>{action.description}</Text> : null}
+                        </View>
                     </TouchableOpacity>
                 ))}
             </View>
@@ -196,13 +200,15 @@ const styles = StyleSheet.create({
     },
     actionOverlay: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
+        flexWrap: 'wrap',
         gap: spacing.sm,
     },
     actionItem: {
+        minWidth: '30%',
         flex: 1,
         alignItems: 'center',
         gap: spacing.sm,
+        paddingVertical: spacing.sm,
     },
     actionIcon: {
         width: 52,
@@ -211,11 +217,21 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
+    actionCopy: {
+        gap: 2,
+        alignItems: 'center',
+    },
     actionLabel: {
         fontSize: typography.sizes.xs,
         lineHeight: typography.lineHeights.xs,
         color: colors.textSecondary,
         fontWeight: typography.weights.medium,
+        textAlign: 'center',
+    },
+    actionDescription: {
+        fontSize: 10,
+        lineHeight: 12,
+        color: colors.textTertiary,
         textAlign: 'center',
     },
 });

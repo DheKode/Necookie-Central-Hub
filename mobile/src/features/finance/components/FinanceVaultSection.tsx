@@ -69,7 +69,12 @@ export function FinanceVaultSection({
             ) : null}
 
             <Card variant="outline">
-                <SectionHeader title="Savings accounts" actionLabel="Create" onActionPress={onCreateFund} />
+                <SectionHeader
+                    title="Savings accounts"
+                    description="Ring-fence money for recurring costs or short-term reserves."
+                    actionLabel="Create"
+                    onActionPress={onCreateFund}
+                />
                 {funds.length === 0 ? (
                     <EmptyState
                         iconName="wallet-outline"
@@ -96,7 +101,12 @@ export function FinanceVaultSection({
             </Card>
 
             <Card variant="outline">
-                <SectionHeader title="Savings goals" actionLabel="Create" onActionPress={onCreateGoal} />
+                <SectionHeader
+                    title="Savings goals"
+                    description="Track destination-based saving without breaking wallet context."
+                    actionLabel="Create"
+                    onActionPress={onCreateGoal}
+                />
                 {goals.length === 0 ? (
                     <EmptyState
                         iconName="flag-outline"
@@ -200,7 +210,7 @@ function VaultCard({ item, itemType, records, onEdit, onDelete, onTransfer }: Va
                             <View style={styles.historyInfo}>
                                 <View style={[styles.historyDot, { backgroundColor: itemType === 'fund' ? (entry.direction === 'deposit' ? colors.secondary : colors.success) : (entry.direction === 'deposit' ? colors.danger : colors.success) }]} />
                                 <Text style={styles.historyLabel}>
-                                    {entry.direction === 'deposit' ? 'Deposit' : 'Withdraw'} · {format(parseISO(entry.date), 'MMM d')}
+                                    {entry.direction === 'deposit' ? 'Deposit' : 'Withdraw'} | {format(parseISO(entry.date), 'MMM d')}
                                 </Text>
                             </View>
                             <Text style={styles.historyAmount}>{currency(entry.amount)}</Text>
