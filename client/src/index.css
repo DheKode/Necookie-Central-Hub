@@ -11,7 +11,11 @@
     --text-main: 15 23 42;     /* Slate-900 */
     --text-muted: 100 116 139; /* Slate-500 */
     --primary: 14 165 233;     /* Sky-500 */
+    --accent: 16 185 129;      /* Emerald-500 */
     --border: 226 232 240;
+    --success: 34 197 94;
+    --warning: 245 158 11;
+    --error: 239 68 68;
     --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
   }
 
@@ -23,23 +27,31 @@
     --text-main: 67 20 7;      /* Espresso */
     --text-muted: 154 52 18;   /* Rust */
     --primary: 217 119 6;      /* Caramel */
+    --accent: 180 83 9;
     --border: 253 218 165;
+    --success: 21 128 61;
+    --warning: 217 119 6;
+    --error: 185 28 28;
     --card-shadow: 0 4px 6px -1px rgba(67, 20, 7, 0.05);
   }
 
-  /* 🌙 BASE DARK (Zinc) */
+  /* 🌙 BASE DARK (Brand First) */
   .dark {
-    --background: 9 9 11;      /* Zinc-950 */
-    --surface: 24 24 27;       /* Zinc-900 */
-    --surface-highlight: 39 39 42;
-    --text-main: 244 244 245;  /* Zinc-100 (Light Text) */
-    --text-muted: 161 161 170; /* Zinc-400 */
-    --primary: 56 189 248;     /* Sky-400 */
-    --border: 39 39 42;
-    --card-shadow: none;
+    --background: 11 16 32;     /* nc.bg */
+    --surface: 18 26 46;        /* nc.surface */
+    --surface-highlight: 23 34 59; /* nc.surfaceElevated */
+    --text-main: 230 236 255;   /* nc.text */
+    --text-muted: 155 169 199;  /* nc.muted */
+    --primary: 124 155 255;     /* nc.primary */
+    --accent: 79 224 181;      /* nc.accent */
+    --border: 38 51 82;         /* nc.border */
+    --success: 43 203 127;     /* nc.success */
+    --warning: 243 185 78;     /* nc.warning */
+    --error: 240 106 122;      /* nc.error */
+    --card-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
   }
 
-  /* 🌌 MIDNIGHT THEME (Deep Blue) */
+  /* 🌌 MIDNIGHT THEME (Original) */
   .dark.theme-midnight {
     --background: 2 6 23;      /* Slate-950 */
     --surface: 15 23 42;       /* Slate-900 */
