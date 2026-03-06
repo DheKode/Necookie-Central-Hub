@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Zap, Activity, Utensils, Edit3 } from 'lucide-react';
+import { Bell, Zap, Activity, Utensils, Edit3, ShieldCheck } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api';
 import ThemeSelector from '../ThemeSelector'; 
 
 const HeaderInputIcon = ({ detectedType }) => {
-  if (detectedType === 'meal') return <Utensils size={14} className="text-emerald-500" />;
-  if (detectedType === 'workout') return <Activity size={14} className="text-orange-500" />;
-  return <Edit3 size={14} className="text-text-muted" />;
+  if (detectedType === 'meal') return <Utensils size={14} className="text-nc-success" />;
+  if (detectedType === 'workout') return <Activity size={14} className="text-nc-warning" />;
+  return <Edit3 size={14} className="text-nc-muted" />;
 };
 
 const DashboardHeader = () => {
@@ -87,21 +87,24 @@ const DashboardHeader = () => {
   };
 
   return (
-    <header className="h-20 border-b border-border bg-surface/50 backdrop-blur-md flex items-center justify-between px-6 z-40 sticky top-0 mb-6 transition-theme">
+    <header className="h-24 border-b border-nc-border bg-nc-surface/80 backdrop-blur-xl flex items-center justify-between px-8 z-40 sticky top-0 mb-8 transition-theme rounded-b-[2rem] mx-4 md:mx-8 mt-4 shadow-sm">
       
-      <div>
-        <h1 className="text-xl md:text-2xl font-light text-text-main">
-          {greeting}, <span className="font-bold text-primary">Dheyn</span>
+      <div className="flex flex-col justify-center">
+        <h1 className="font-sora text-xl md:text-2xl font-bold text-nc-text tracking-tight flex items-center gap-2">
+          {greeting}, <span className="text-nc-primary">Dheyn</span>
         </h1>
-        <p className="text-xs font-mono text-text-muted mt-1 uppercase tracking-wider">
-          {formattedDate} • <span className="text-text-main font-bold">{formattedTime}</span>
-        </p>
+        <div className="flex items-center gap-2 mt-1">
+          <ShieldCheck size={12} className="text-nc-success" />
+          <p className="text-[11px] font-mono text-nc-muted uppercase tracking-[0.2em] font-medium">
+            {formattedDate} <span className="mx-1 opacity-50">•</span> <span className="text-nc-text">{formattedTime}</span>
+          </p>
+        </div>
       </div>
 
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-8">
         
         {/* Input Field */}
-        <div className="hidden md:flex items-center gap-2 bg-background border border-border px-3 py-2 rounded-xl w-96 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all shadow-sm relative">
+        <div className="hidden lg:flex items-center gap-3 bg-nc-bg border border-nc-border px-4 py-2.5 rounded-xl w-[400px] focus-within:border-nc-primary/50 focus-within:ring-4 focus-within:ring-nc-primary/5 transition-all shadow-inner relative group">
           <div className="shrink-0 transition-colors duration-300">
              <HeaderInputIcon detectedType={detectedType} />
           </div>
@@ -110,36 +113,38 @@ const DashboardHeader = () => {
             value={status} 
             onChange={handleInputChange} 
             onKeyDown={handleLog} 
-            placeholder="Log anything... (e.g., 'Coding', 'Ate Pizza', 'Ran 5km')" 
-            className="bg-transparent border-none outline-none text-xs w-full text-text-main placeholder:text-text-muted font-sans" 
+            placeholder="Quick log... (e.g., 'Coding', 'Ate Pizza', 'Ran 5km')" 
+            className="bg-transparent border-none outline-none text-sm w-full text-nc-text placeholder:text-nc-muted/50 font-medium" 
           />
+          <div className="hidden group-focus-within:flex items-center gap-1 absolute right-3 opacity-50">
+             <kbd className="font-mono text-[9px] px-1.5 py-0.5 rounded border border-nc-border bg-nc-surface text-nc-text">↵</kbd>
+          </div>
           {(mealMutation.isPending || workoutMutation.isPending || taskMutation.isPending || generateAiMutation.isPending) && (
-             <Zap size={14} className="animate-spin text-primary shrink-0" />
+             <Zap size={14} className="animate-spin text-nc-primary shrink-0 absolute right-4" />
           )}
         </div>
 
         {/* Status Indicators */}
-        <div className="hidden md:block text-right">
-          <p className="text-[9px] font-bold text-text-muted uppercase tracking-widest mb-0.5">System Status</p>
+        <div className="hidden md:flex flex-col items-end justify-center">
+          <p className="text-[9px] font-mono font-bold text-nc-muted uppercase tracking-[0.2em] mb-1.5">Node Status</p>
           <div className="flex items-center justify-end gap-3">
-            <span className="px-1.5 py-0.5 rounded-md bg-amber-100 border border-amber-200 text-amber-600 dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-400 text-[9px] font-bold tracking-tight">v0.1</span>
-            <div className="flex items-center gap-1.5">
+            <span className="px-2 py-0.5 rounded-md bg-nc-surface border border-nc-border text-nc-muted text-[10px] font-mono font-bold tracking-wider">v2.4.0</span>
+            <div className="flex items-center gap-2 px-2 py-0.5 rounded-md bg-nc-success/10 border border-nc-success/20">
                <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-nc-success opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-nc-success"></span>
                 </span>
-              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-mono">ONLINE</span>
+              <span className="text-[10px] font-bold text-nc-success font-mono tracking-wider">SYNCED</span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* UPDATED: Pass 'header' variant so it drops DOWN */}
+        <div className="flex items-center gap-3 border-l border-nc-border pl-6">
           <ThemeSelector variant="header" />
           
-          <button className="relative p-2 rounded-xl bg-surface border border-border hover:bg-background transition-all shadow-sm group">
-            <Bell size={20} className="text-text-muted group-hover:text-text-main" />
-            <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full border border-surface" />
+          <button className="relative p-2.5 rounded-xl bg-nc-surface border border-nc-border hover:bg-nc-surfaceElevated hover:border-nc-primary/30 transition-all shadow-sm group">
+            <Bell size={18} className="text-nc-muted group-hover:text-nc-text transition-colors" />
+            <span className="absolute top-2 right-2 w-2 h-2 bg-nc-error rounded-full border-[1.5px] border-nc-surface shadow-[0_0_8px_rgba(240,106,122,0.6)]" />
           </button>
         </div>
       </div>

@@ -62,37 +62,41 @@ const AllowanceCard = () => {
   }, []);
 
   return (
-    <div className="bg-surface rounded-2xl p-6 flex flex-col justify-between shadow-sm h-full transition-theme">
+    <div className="bg-nc-surface border border-nc-border rounded-[1.5rem] p-6 flex flex-col justify-between shadow-sm h-full transition-theme">
       <div className="flex justify-between items-start">
         <div>
-          <p className="text-text-muted text-xs font-bold uppercase tracking-widest mb-1">Allowance</p>
-          <h2 className="text-2xl font-mono text-text-main font-bold">
+          <p className="text-nc-muted text-[10px] font-mono font-bold uppercase tracking-[0.2em] mb-1">Allowance</p>
+          <h2 className="text-3xl font-mono text-nc-text font-bold tracking-tight">
             {loading ? '...' : formatter.format(balance)}
           </h2>
         </div>
-        <div className="bg-emerald-500/10 p-2 rounded-lg text-emerald-500 border border-emerald-500/20">
-          <span className="text-xs font-bold font-mono">
+        <div className={`p-2 rounded-xl border flex items-center justify-center ${balance > 0 ? 'bg-nc-success/10 text-nc-success border-nc-success/20' : 'bg-nc-warning/10 text-nc-warning border-nc-warning/20'}`}>
+          <span className="text-[10px] uppercase tracking-widest font-bold font-mono">
             {balance > 0 ? 'Active' : 'Low'}
           </span>
         </div>
       </div>
 
-      <div className="mt-6 flex items-end gap-1 h-12">
+      <div className="mt-8 flex items-end gap-1.5 h-14">
         {graphData.map((height, idx) => (
           <div
             key={idx}
-            className={`w-1/5 rounded-t-sm transition-all duration-500 ${idx === 4
-                ? 'bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.3)]'
-                : 'bg-surface-highlight'
+            className={`w-1/5 rounded-t transition-all duration-500 ${idx === 4
+                ? 'bg-nc-primary shadow-[0_0_15px_rgba(124,155,255,0.4)]'
+                : 'bg-nc-surfaceElevated hover:bg-nc-border'
               }`}
             style={{ height: `${height}%` }}
             title={`Day ${idx + 1}`}
           />
         ))}
       </div>
-      <p className="text-text-muted text-[10px] mt-2 text-center font-medium uppercase tracking-wide">
-        Weekly Spending Trend
-      </p>
+      <div className="mt-3 flex items-center gap-2">
+         <div className="h-px flex-1 bg-nc-border" />
+         <p className="text-nc-muted text-[9px] font-mono uppercase tracking-[0.2em]">
+           Weekly Trend
+         </p>
+         <div className="h-px flex-1 bg-nc-border" />
+      </div>
     </div>
   );
 };

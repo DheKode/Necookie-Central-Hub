@@ -68,8 +68,8 @@ const ThemeSelector = ({ variant = 'sidebar' }) => {
 
   // 1. Button Styling
   const buttonClass = isSidebar 
-    ? "flex items-center justify-center p-2.5 rounded-xl bg-surface border border-border text-text-muted hover:text-text-main hover:bg-surface-highlight transition-all shadow-sm group w-10 h-10"
-    : "flex items-center gap-2 px-3 py-2 rounded-xl bg-surface border border-border text-text-muted hover:text-text-main hover:bg-surface-highlight transition-all shadow-sm group text-sm font-bold";
+    ? "flex items-center justify-center p-2.5 rounded-xl bg-nc-surface border border-nc-border text-nc-muted hover:text-nc-text hover:bg-nc-surfaceElevated hover:border-nc-primary/30 transition-all shadow-sm group w-10 h-10"
+    : "flex items-center gap-2 px-3 py-2.5 rounded-xl bg-nc-surface border border-nc-border text-nc-muted hover:text-nc-text hover:bg-nc-surfaceElevated hover:border-nc-primary/30 transition-all shadow-sm group text-sm font-bold font-sora";
 
   // 2. Dropdown Positioning
   const dropdownPosition = isSidebar
@@ -85,7 +85,7 @@ const ThemeSelector = ({ variant = 'sidebar' }) => {
         className={buttonClass}
         title="Change Theme"
       >
-        <Palette size={isSidebar ? 20 : 16} className="group-hover:text-primary transition-colors" />
+        <Palette size={isSidebar ? 20 : 16} className="group-hover:text-nc-primary transition-colors" />
         
         {/* Header Mode shows Text */}
         {!isSidebar && (
@@ -98,9 +98,9 @@ const ThemeSelector = ({ variant = 'sidebar' }) => {
 
       {/* DROPDOWN MENU */}
       {isOpen && (
-        <div className={`absolute ${dropdownPosition} w-48 bg-surface border border-border rounded-xl shadow-2xl shadow-black/20 overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-200`}>
+        <div className={`absolute ${dropdownPosition} w-48 bg-nc-surfaceElevated border border-nc-border rounded-[1rem] shadow-2xl shadow-black/40 overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-200`}>
           <div className="p-2 space-y-1">
-            <p className="px-2 py-1 text-[10px] font-bold text-text-muted uppercase tracking-wider opacity-70">
+            <p className="px-2 py-1.5 text-[10px] font-mono font-bold text-nc-muted uppercase tracking-[0.2em] opacity-70">
               Aesthetic
             </p>
             {themes.map(theme => (
@@ -109,19 +109,19 @@ const ThemeSelector = ({ variant = 'sidebar' }) => {
                 onClick={() => { applyTheme(theme.id); setIsOpen(false); }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
                   activeTheme === theme.id 
-                    ? 'bg-primary/10 text-primary' 
-                    : 'text-text-muted hover:bg-surface-highlight hover:text-text-main'
+                    ? 'bg-nc-primary/10 text-nc-primary' 
+                    : 'text-nc-muted hover:bg-nc-surface hover:text-nc-text'
                 }`}
               >
                 {/* Theme Preview Dot */}
-                <div className={`relative w-4 h-4 rounded-full border border-gray-400/20 shadow-sm ${theme.bg} overflow-hidden shrink-0`}>
+                <div className={`relative w-4 h-4 rounded-full border border-black/20 shadow-sm ${theme.bg} overflow-hidden shrink-0`}>
                   <div className={`absolute inset-0 m-auto w-1.5 h-1.5 rounded-full ${theme.dot}`} />
                 </div>
                 
-                <span className="flex-1 text-left">{theme.name}</span>
+                <span className="flex-1 text-left font-sora text-xs">{theme.name}</span>
                 
                 {/* Active Checkmark */}
-                {activeTheme === theme.id && <Check size={14} className="text-primary animate-in zoom-in duration-300" />}
+                {activeTheme === theme.id && <Check size={14} className="text-nc-primary animate-in zoom-in duration-300" />}
               </button>
             ))}
           </div>

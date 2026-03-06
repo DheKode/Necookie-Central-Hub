@@ -1,116 +1,89 @@
-
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutGrid, Clock, BookOpen, Wallet, Lock,
-  Menu, X, Zap, LogOut, CheckSquare
+  Menu, X, Command, LogOut, CheckSquare
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import ThemeSelector from './ThemeSelector';
 
-/**
- * MainLayout Component
- * 
- * This is the primary wrapper for the entire application. It provides the persistent UI
- * elements like the Sidebar (desktop) and Bottom/Top Navigation (mobile).
- * 
- * @param {Object} props
- * @param {React.ReactNode} props.children - The specific page content (e.g., Dashboard, Diary) rendered inside this layout.
- */
 const MainLayout = ({ children }) => {
-  // `useLocation` is a React Router hook that gives us the current URL.
-  // We use this to highlight the active menu icon.
   const location = useLocation();
-
-  // `useState` manages local component state. Here it tracks if the mobile sliding menu is open or closed.
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // `useEffect` runs side-effects. This specific effect listens for changes to `location.pathname` (the URL).
-  // When the user clicks a link and the route changes, we automatically close the mobile menu.
   React.useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
 
-  /**
-   * Handles user logout by calling the Supabase auth API.
-   * Supabase will clear the local session tokens automatically.
-   */
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
 
   return (
-    // The outermost wrapper uses `fixed inset-0` to pin it to all 4 corners of the screen,
-    // ensuring the app takes up the full viewport height without body scrolling.
-    <div className="fixed inset-0 w-full h-full bg-background text-text-main font-sans overflow-hidden flex transition-theme">
-
-      {/* LAYER 0: Background Effects (Removed for Minimalist UI) */}
+    <div className="fixed inset-0 w-full h-full bg-nc-bg text-nc-text font-sans overflow-hidden flex transition-theme antialiased selection:bg-nc-primary/20">
 
       {/* LAYER 1: Sidebar (Desktop) */}
-      <aside className="hidden md:flex w-20 flex-col items-center py-6 border-r border-border/50 bg-background/50 backdrop-blur-md z-20 relative transition-theme">
+      <aside className="hidden md:flex w-20 flex-col items-center py-6 border-r border-nc-border bg-nc-surface/50 backdrop-blur-md z-20 relative transition-theme">
         <div className="mb-8 p-2">
-          <Link to="/" className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 hover:scale-105 transition-transform">
-            <Zap size={20} className="text-white fill-white" />
+          <Link to="/" className="w-10 h-10 bg-nc-surface border border-nc-border rounded-xl flex items-center justify-center shadow-lg shadow-black/20 hover:border-nc-primary/50 group transition-all duration-300">
+            <Command size={20} strokeWidth={2.5} className="text-nc-primary group-hover:scale-110 transition-transform" />
           </Link>
         </div>
 
         <nav className="flex flex-col gap-6 w-full items-center">
-          <NavIcon to="/dashboard" icon={LayoutGrid} size={24} active={location.pathname === '/dashboard'} />
-          <NavIcon to="/history" icon={Clock} size={24} active={location.pathname === '/history'} />
-          <NavIcon to="/diary" icon={BookOpen} size={24} active={location.pathname === '/diary'} />
-          <NavIcon to="/finance" icon={Wallet} size={24} active={location.pathname === '/finance'} />
-          <NavIcon to="/todo" icon={CheckSquare} size={24} active={location.pathname === '/todo'} />
+          <NavIcon to="/dashboard" icon={LayoutGrid} size={22} active={location.pathname === '/dashboard'} />
+          <NavIcon to="/history" icon={Clock} size={22} active={location.pathname === '/history'} />
+          <NavIcon to="/diary" icon={BookOpen} size={22} active={location.pathname === '/diary'} />
+          <NavIcon to="/finance" icon={Wallet} size={22} active={location.pathname === '/finance'} />
+          <NavIcon to="/todo" icon={CheckSquare} size={22} active={location.pathname === '/todo'} />
 
-          <div className="h-px w-8 bg-border my-2 transition-colors" />
+          <div className="h-px w-6 bg-nc-border my-2 transition-colors" />
 
-          <NavIcon to="/vault" icon={Lock} size={22} active={location.pathname === '/vault'} danger />
+          <NavIcon to="/vault" icon={Lock} size={20} active={location.pathname === '/vault'} danger />
         </nav>
 
         {/* BOTTOM ACTIONS */}
         <div className="mt-auto flex flex-col items-center gap-4 pb-4">
-          {/* THEME SELECTOR - Sidebar Variant (Pops Right) */}
           <div className="scale-90">
             <ThemeSelector variant="sidebar" />
           </div>
 
-          {/* LOGOUT */}
           <button
             onClick={handleLogout}
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-text-muted hover:text-red-500 hover:bg-red-500/10 transition-all"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-nc-muted hover:text-nc-error hover:bg-nc-error/10 transition-all"
             title="Logout"
           >
-            <LogOut size={20} />
+            <LogOut size={18} />
           </button>
         </div>
       </aside>
 
       {/* LAYER 2: Mobile Sidebar (Overlay) */}
       {isMobileMenuOpen && (
-        <div className="absolute inset-0 z-50 md:hidden bg-black/50 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}>
-          <div className="w-20 h-full bg-surface border-r border-border flex flex-col items-center py-6 transition-theme" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setIsMobileMenuOpen(false)} className="mb-8 p-2 text-text-muted hover:text-red-500">
+        <div className="absolute inset-0 z-50 md:hidden bg-nc-bg/80 backdrop-blur-md" onClick={() => setIsMobileMenuOpen(false)}>
+          <div className="w-20 h-full bg-nc-surface border-r border-nc-border flex flex-col items-center py-6 transition-theme shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setIsMobileMenuOpen(false)} className="mb-8 p-2 text-nc-muted hover:text-nc-error rounded-xl hover:bg-nc-surfaceElevated transition-all">
               <X size={24} />
             </button>
             <nav className="flex flex-col gap-6 w-full items-center">
-              <NavIcon to="/dashboard" icon={LayoutGrid} size={24} active={location.pathname === '/dashboard'} />
-              <NavIcon to="/history" icon={Clock} size={24} active={location.pathname === '/history'} />
-              <NavIcon to="/diary" icon={BookOpen} size={24} active={location.pathname === '/diary'} />
-              <NavIcon to="/finance" icon={Wallet} size={24} active={location.pathname === '/finance'} />
-              <NavIcon to="/todo" icon={CheckSquare} size={24} active={location.pathname === '/todo'} />
-              <NavIcon to="/vault" icon={Lock} size={22} active={location.pathname === '/vault'} danger />
+              <NavIcon to="/dashboard" icon={LayoutGrid} size={22} active={location.pathname === '/dashboard'} />
+              <NavIcon to="/history" icon={Clock} size={22} active={location.pathname === '/history'} />
+              <NavIcon to="/diary" icon={BookOpen} size={22} active={location.pathname === '/diary'} />
+              <NavIcon to="/finance" icon={Wallet} size={22} active={location.pathname === '/finance'} />
+              <NavIcon to="/todo" icon={CheckSquare} size={22} active={location.pathname === '/todo'} />
+              <NavIcon to="/vault" icon={Lock} size={20} active={location.pathname === '/vault'} danger />
 
-              <div className="h-px w-8 bg-border my-2" />
+              <div className="h-px w-6 bg-nc-border my-2" />
 
-              {/* THEME SELECTOR - Mobile Sidebar (Pops Right) */}
               <div className="scale-90 my-2">
                 <ThemeSelector variant="sidebar" />
               </div>
 
               <button
                 onClick={handleLogout}
-                className="p-3 rounded-2xl text-text-muted hover:text-red-500 hover:bg-red-500/10 transition-all"
+                className="p-3 rounded-2xl text-nc-muted hover:text-nc-error hover:bg-nc-error/10 transition-all"
               >
-                <LogOut size={22} />
+                <LogOut size={20} />
               </button>
             </nav>
           </div>
@@ -118,14 +91,14 @@ const MainLayout = ({ children }) => {
       )}
 
       {/* LAYER 3: Main Content Area */}
-      <main className="flex-1 flex flex-col relative z-10 h-full overflow-hidden min-w-0 bg-background transition-theme">
+      <main className="flex-1 flex flex-col relative z-10 h-full overflow-hidden min-w-0 bg-nc-bg transition-theme">
 
         {/* Mobile Header */}
-        <div className="md:hidden p-4 flex justify-between items-center bg-background/80 border-b border-border/50 backdrop-blur-md shrink-0">
+        <div className="md:hidden p-4 flex justify-between items-center bg-nc-surface/80 border-b border-nc-border backdrop-blur-md shrink-0">
           <button onClick={() => setIsMobileMenuOpen(true)}>
-            <Menu className="text-text-muted" />
+            <Menu className="text-nc-muted" />
           </button>
-          <span className="font-bold text-text-main">Necookie Hub</span>
+          <span className="font-sora font-bold text-nc-text text-sm">Necookie Hub</span>
           <div className="w-6" />
         </div>
 
@@ -143,12 +116,13 @@ const MainLayout = ({ children }) => {
 
 // Helper Component for Sidebar Icons
 const NavIcon = ({ to, icon, size, active, danger }) => (
-  <Link to={to} className={`relative group p-3 rounded-2xl transition-all duration-300 ${active
-    ? 'bg-primary/10 text-primary'
-    : 'text-text-muted hover:text-text-main hover:bg-surface-highlight'
-    } ${danger ? 'hover:text-amber-500 hover:bg-amber-500/10' : ''}`}>
-    {React.createElement(icon, { size })}
-    {active && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />}
+  <Link to={to} className={`relative group p-3 rounded-[14px] transition-all duration-300 ${
+    active
+      ? 'bg-nc-primary/10 text-nc-primary'
+      : 'text-nc-muted hover:text-nc-text hover:bg-nc-surfaceElevated'
+    } ${danger ? 'hover:text-nc-error hover:bg-nc-error/10' : ''}`}>
+    {React.createElement(icon, { size, strokeWidth: active ? 2.5 : 2 })}
+    {active && <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-nc-primary rounded-r-full shadow-[0_0_10px_rgba(124,155,255,0.5)]" />}
   </Link>
 );
 
