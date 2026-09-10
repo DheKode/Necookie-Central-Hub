@@ -1,141 +1,136 @@
 # Necookie Central Hub
 
-Necookie Central Hub is a personal life dashboard with two active clients in this repository:
+Necookie Central Hub is a personal life dashboard — tasks/projects, a
+journal, a finance tracker, and a unified activity history — built as a
+web app (`client/`) and a companion Expo mobile app (`mobile/`), backed by
+Supabase.
 
-- `client/` for the existing web app
-- `mobile/` for the Expo-based mobile app
+> ## 🗄️ Archived / Discontinued — September 2026
+>
+> This project is no longer under active development. It is preserved
+> here for reference and for anyone who wants to fork it.
+>
+> - No new features, fixes, or support will be provided.
+> - Issues and pull requests may not receive a response — see
+>   [CONTRIBUTING.md](CONTRIBUTING.md).
+> - The project should not be treated as production-ready — see
+>   [SECURITY.md](SECURITY.md).
+> - **External infrastructure this project depends on — namely its
+>   [Supabase](https://supabase.com) project (database/auth) and its
+>   [OpenAI](https://platform.openai.com) API key — may be decommissioned
+>   after archival.** If you fork this repository and want to run it
+>   again in the future, expect to need to provision your own Supabase
+>   project and OpenAI API key (and reproduce the database schema — see
+>   [Database Setup](#database-setup)), since the original hosted
+>   instances and credentials may no longer exist or be valid.
 
-The codebase uses Supabase for auth and most data access, plus a small Express server used for AI summary generation.
+This README reflects the code that exists in the repository today, not the
+original product vision.
 
-This README reflects the code that exists in the repository today, not the original product vision.
+## Implemented Features
 
-## Current Status
+### Web app (`client/`)
 
-- `client/` is the primary application and contains the implemented product experience.
-- `mobile/` is an active Expo app with authenticated navigation and core feature coverage for dashboard, todo, journal, finance, and history.
-- `server/` is a lightweight API with one AI endpoint at `/api/ai/summary`.
-- Most feature CRUD is handled directly from the clients with `@supabase/supabase-js`.
-- Shared business/data access logic is starting to live under `shared/`.
-- There are no root workspace scripts yet. Install and run each app separately.
-
-## Implemented Web App Areas
-
-### Authentication and App Shell
-
+**Authentication and app shell**
 - Landing page with a modal-based login/sign-up flow
 - Supabase session handling in the client
 - Protected routes for the main app
 - Desktop sidebar and mobile slide-out navigation
 - Theme selector integrated into the app shell
 
-### Dashboard
-
+**Dashboard**
 - Multi-card dashboard layout
 - Health and activity widgets
 - Task and recent activity widgets
 - AI daily recap card
 
-### Finance
-
+**Finance**
 - Finance dashboard with summary cards and charts
 - Calendar view for transactions
 - Savings/vault-style goal area
 - Transaction history table
 - Add/delete transaction flow
 
-### Todo
-
+**Todo**
 - Projects
 - Tasks with priorities, tags, due dates, and notes
 - Subtasks
 - Task create/edit modal
 
-### Journal and History
-
+**Journal and History**
 - Journal entries stored in Supabase
 - Mood tracking
 - Search, filter, and grid/list views
 - Unified activity feed view
 
-### Vault
-
+**Vault**
 - Private vault screen backed by Supabase data
-- Client-side PIN gate before loading data
+- Client-side PIN gate before loading data (UX gate, not real security —
+  see [Known Limitations](#known-limitations))
 
-## Implemented Mobile App Areas
+### Mobile app (`mobile/`)
 
-### Mobile Foundation
-
-- Expo 55 app in `mobile/`
-- Expo Router route structure with auth and tab groups
-- Shared Supabase-backed data service via `shared/`
+- Expo (~55) app with Expo Router, TypeScript, and a custom theme/design
+  system
+- Auth-gated navigation: login/signup screens, protected tab layout,
+  sign-out flow
 - AsyncStorage-backed Supabase session persistence
-- Typed TypeScript mobile app with custom theme primitives and reusable UI components
-
-### Mobile Auth and App Shell
-
-- Login and signup screens
-- Auth-gated root layout and tab navigation
-- Sign-out flow from the dashboard
-- Splash/font loading and protected-route redirects
-
-### Mobile Feature Coverage
-
 - Dashboard with recent activity, next-task summary, and shortcuts
 - Todo list with status filters and completion toggles
 - Journal list plus entry creation modal
-- Finance hub with dashboard, calendar, vault, and transaction tabs
-- Finance create/delete flows, savings funds/goals, and transfer actions
+- Finance hub: dashboard, calendar, vault, transaction, savings
+  funds/goals, and transfer flows (create/delete included)
 - History timeline screen
+- Release plumbing: `app.json` configured for `com.necookie.centralhub`
+  on iOS/Android, `eas.json` with an internal Android build profile, and
+  `typecheck` / `export:android` / `build:internal:android` npm scripts
 
-### Mobile Release Readiness
+### Server (`server/`)
 
-- `mobile/app.json` is configured for `com.necookie.centralhub` on both iOS and Android
-- `mobile/eas.json` includes an internal Android build profile
-- `mobile/package.json` includes `typecheck`, Android export, and internal Android EAS build scripts
-- Android export validation has been exercised successfully with Expo export
+- One endpoint, `POST /api/ai/summary`, used for AI-generated daily
+  recaps. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full
+  request flow.
 
-## Architecture
+## Tech Stack
 
-### Frontend
-
-- React 19
-- Vite 7
+**Frontend (`client/`)**
+- React 19, Vite 7
 - React Router DOM 7
 - Tailwind CSS 3
 - TanStack Query
 - Supabase JS client
-- Recharts
-- Lucide React
+- Recharts, Lucide React
 
-### Backend
+**Mobile (`mobile/`)**
+- Expo ~55, Expo Router, React Native 0.83, TypeScript
+- Supabase JS client, AsyncStorage
+- React Navigation
 
-- Node.js
-- Express
+**Backend (`server/`)**
+- Node.js, Express
 - OpenAI SDK
 - Supabase JS client
-- `pg` and `sequelize` are installed, but the current server code does not expose general CRUD endpoints
+- `pg` and `sequelize` are installed but not currently wired to any
+  route — there is no general CRUD API here
 
-### Data Flow
+**Data**
+- Supabase (Postgres, Auth, Row Level Security)
 
-- The client talks directly to Supabase for most reads/writes
-- The Express server is currently used for AI summary generation only
-- The AI flow is:
-  - client gathers the user's same-day history from Supabase
-  - client posts a prompt to `/api/ai/summary`
-  - server calls OpenAI
-  - client saves the generated summary back to Supabase
+## Architecture / Project Structure
 
-## Repository Structure
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for a full walkthrough
+of how `client/`, `mobile/`, `server/`, and `shared/` fit together and how
+the AI summary flow works end to end.
 
 ```text
 Necookie-Central-Hub/
-|-- client/
+|-- client/                 # Web app (React + Vite)
 |   |-- src/
-|   |   |-- components/
+|   |   |-- components/     # Shared + feature UI (dashboard, finance, todo)
 |   |   |-- constants/
-|   |   |-- pages/
-|   |   |-- services/
+|   |   |-- hooks/
+|   |   |-- pages/          # Routed screens
+|   |   |-- services/       # Supabase + AI-endpoint wrappers
 |   |   |-- api.js
 |   |   |-- App.jsx
 |   |   |-- main.jsx
@@ -143,52 +138,77 @@ Necookie-Central-Hub/
 |   |-- public/
 |   |-- package.json
 |   `-- vite.config.js
-|-- mobile/
-|   |-- app/
+|-- mobile/                 # Expo app (React Native + TypeScript)
+|   |-- app/                # Expo Router routes ((auth), (tabs))
 |   |-- assets/
-|   |-- components/
-|   |-- src/
+|   |-- components/         # Reusable UI primitives (components/ui)
+|   |-- src/                # Features, hooks, services, Supabase client
 |   |-- app.config.js
 |   |-- app.json
 |   |-- eas.json
 |   `-- package.json
-|-- server/
+|-- server/                 # Express API (AI summary endpoint only)
 |   |-- controllers/
 |   |-- routes/
 |   |-- index.js
 |   |-- package.json
 |   `-- todo_migrations.sql
-|-- shared/
-|   `-- services/
+|-- shared/                 # Supabase data-access functions shared by
+|   `-- services/           # client/ and mobile/
+|-- docs/
+|   |-- ARCHITECTURE.md
+|   `-- brand.md            # Visual/brand system reference
+|-- .env.example             # Root-level env template (see below)
 |-- package.json
 `-- README.md
 ```
 
-## Environment Variables
+## Prerequisites
+
+- Node.js 18+ and npm (developed/tested against Node 20+)
+- A [Supabase](https://supabase.com) project (Postgres + Auth)
+- An [OpenAI](https://platform.openai.com) API key (only needed to use the
+  AI daily-recap feature)
+- For mobile builds: the [Expo](https://docs.expo.dev/) tooling (`npx
+  expo`) and, for internal Android builds, an [EAS](https://expo.dev/eas)
+  account
+
+## Installation
+
+There are no root workspace scripts — install and run each app
+separately.
+
+```bash
+# Web client
+cd client
+npm install
+
+# API server (in another terminal)
+cd server
+npm install
+
+# Mobile app (optional)
+cd mobile
+npm install
+```
+
+## Environment Setup
+
+Copy the relevant `.env.example` file(s) to `.env` and fill in real
+values. Never commit `.env` files.
 
 ### Client
 
-Create `client/.env` with:
+Create `client/.env` (see `client/.env.example`):
 
 ```env
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-### Mobile
-
-The mobile app reads Supabase values from Expo public env vars or the repository root `.env`.
-
-Supported keys:
-
-```env
-EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
-
 ### Server
 
-Create `server/.env` with:
+Create `server/.env` (see `server/.env.example`):
 
 ```env
 PORT=5000
@@ -198,67 +218,25 @@ SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY` is preferable on the server. The controller currently falls back to the anon key if the service role key is missing.
+`SUPABASE_SERVICE_ROLE_KEY` is preferable on the server. The controller
+currently falls back to the anon key if the service role key is missing.
 
-## Local Development
+### Mobile
 
-### 1. Install dependencies
+The mobile app reads Supabase values from Expo public env vars, or falls
+back to the **repo-root** `.env` file (see the root `.env.example`):
 
-```bash
-cd client
-npm install
+```env
+EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-In another terminal:
+## Database Setup
 
-```bash
-cd server
-npm install
-```
-
-For mobile:
-
-```bash
-cd mobile
-npm install
-```
-
-### 2. Start the server
-
-```bash
-cd server
-npm run dev
-```
-
-### 3. Start the client
-
-```bash
-cd client
-npm run dev
-```
-
-Open `http://localhost:5173`.
-
-### 4. Start the mobile app
-
-```bash
-cd mobile
-npm start
-```
-
-Useful mobile commands:
-
-```bash
-npm run typecheck
-npm run export:android
-npm run build:internal:android
-```
-
-## Database Notes
-
-The code expects Supabase tables/views beyond what is defined in `server/todo_migrations.sql`.
-
-From the current client services, the app references at least:
+The code expects Supabase tables/views beyond what is defined in
+`server/todo_migrations.sql` (which only covers an incremental part of
+the todo schema — projects, subtasks, and their RLS policies). From the
+current client services, the apps reference at least:
 
 - `projects`
 - `tasks`
@@ -272,18 +250,105 @@ From the current client services, the app references at least:
 - `daily_summaries`
 - `unified_history`
 
-`server/todo_migrations.sql` only covers part of the todo schema, so a full Supabase schema/export is still needed if you want this repository to be reproducible from scratch.
+There is no full schema export in this repository. To run this project
+against a fresh Supabase project, you will need to recreate these tables
+(with appropriate columns and Row Level Security policies scoped to
+`auth.uid()`, following the pattern in `server/todo_migrations.sql`)
+yourself.
 
-## Known Gaps and Risks
+## Local Development
 
-- The server currently exposes only AI summary functionality.
-- Most business logic and data access still live in the clients, not behind a backend API.
-- The AI endpoint trusts `userId` from the client and does not verify auth server-side yet.
-- The vault PIN is hardcoded in the frontend and should not be treated as real security.
-- There are no automated tests in this repository yet.
-- The top-level `package.json` does not currently provide workspace scripts.
-- Mobile still needs broader device QA, especially around keyboard-heavy flows and long-content screens.
+1. **Start the server**
+
+   ```bash
+   cd server
+   npm run dev
+   ```
+
+2. **Start the client**
+
+   ```bash
+   cd client
+   npm run dev
+   ```
+
+   Open `http://localhost:5173`.
+
+3. **Start the mobile app** (optional)
+
+   ```bash
+   cd mobile
+   npm start
+   ```
+
+   Useful mobile commands:
+
+   ```bash
+   npm run typecheck
+   npm run export:android
+   npm run build:internal:android
+   ```
+
+## Build Commands
+
+```bash
+# Web client production build
+cd client
+npm run build      # outputs to client/dist
+npm run preview    # preview the production build locally
+
+# Web client lint
+npm run lint
+
+# Mobile typecheck
+cd mobile
+npm run typecheck
+
+# Mobile Android export
+cd mobile
+npm run export:android
+```
+
+The server has no build step (`npm start` runs it directly with Node;
+`npm run dev` runs it with nodemon).
+
+## Known Limitations
+
+- The server currently exposes only AI summary functionality — most
+  business logic and data access live in the clients, not behind a
+  backend API.
+- The AI endpoint (`POST /api/ai/summary`) trusts the `userId` provided
+  by the client and does not verify auth server-side.
+- The vault PIN is a client-side UX gate, not real security, and should
+  not be treated as one.
+- There are no automated tests in this repository.
+- There is no repository-wide formatter (no Prettier config); `client/`
+  has ESLint, `mobile/` has TypeScript's `tsc --noEmit`, `server/` has
+  neither.
+- The top-level `package.json` does not provide workspace scripts —
+  each app is installed and run independently.
+- Mobile has not had broad device QA, particularly around keyboard-heavy
+  flows and long-content screens.
+- Since this project is archived, none of the above will be addressed
+  going forward — see [SECURITY.md](SECURITY.md) before deploying a
+  fork.
 
 ## Related Docs
 
-- `MOBILE_IMPLEMENTATION_PLAN.md` for the current mobile status and next implementation steps
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — how the apps and data
+  flow fit together
+- [docs/brand.md](docs/brand.md) — the visual/brand system applied to the
+  web app
+- [MOBILE_IMPLEMENTATION_PLAN.md](MOBILE_IMPLEMENTATION_PLAN.md) — the
+  mobile app's implementation history and status at the time development
+  stopped
+
+## Contributing
+
+This project is archived. See [CONTRIBUTING.md](CONTRIBUTING.md) —
+forks are welcome under the MIT License, but issues and pull requests
+against this repository may not receive a response.
+
+## License
+
+MIT — see [LICENSE](LICENSE). Copyright (c) 2026 Dheyn Michael Orlanda.
